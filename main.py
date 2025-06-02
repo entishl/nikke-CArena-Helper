@@ -4,10 +4,8 @@ import os    # <--- 新增：检查环境变量 (备用检查方式，虽然主�
 import pygetwindow
 import pyautogui
 import time
-import sys
-import os
 from PIL import Image
-import keyboard 
+import keyboard
 import logging
 import psutil # <--- 新增：用于查找进程
 import win32gui # <--- 新增：用于查找窗口句柄
