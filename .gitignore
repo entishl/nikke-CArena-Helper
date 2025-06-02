@@ -69,3 +69,4 @@ venv.bak/
 # Other
 *.log
 local_settings.py
+mode5_implementation_plan.md

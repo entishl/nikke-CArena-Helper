@@ -92,9 +92,19 @@ _64IN8_PLAYER2_COORD_ABS_M4 = (1430, 1036)
 _64IN8_PLAYER3_COORD_ABS_M4 = (2411, 760)
 _64IN8_PLAYER4_COORD_ABS_M4 = (2411, 1036)
 _64IN8_PLAYER5_COORD_ABS_M4 = (1430, 1555)
-_64IN8_PLAYER6_COORD_ABS_M4 = (1430, 1825) # Corrected Y
+_64IN8_PLAYER6_COORD_ABS_M4 = (1430, 1825)
 _64IN8_PLAYER7_COORD_ABS_M4 = (2411, 1555)
 _64IN8_PLAYER8_COORD_ABS_M4 = (2411, 1825)
+
+# Mode 5 Specific Absolute Coordinates (Champion Arena)
+_CHAMPION_PLAYER1_COORD_ABS_M5 = (1428, 690)
+_CHAMPION_PLAYER2_COORD_ABS_M5 = (1428, 960)
+_CHAMPION_PLAYER3_COORD_ABS_M5 = (2408, 690)
+_CHAMPION_PLAYER4_COORD_ABS_M5 = (2408, 960)
+_CHAMPION_PLAYER5_COORD_ABS_M5 = (1428, 1480)
+_CHAMPION_PLAYER6_COORD_ABS_M5 = (1428, 1750)
+_CHAMPION_PLAYER7_COORD_ABS_M5 = (2408, 1480)
+_CHAMPION_PLAYER8_COORD_ABS_M5 = (2408, 1750)
 # --- 将绝对坐标转换为相对比例 ---
 # 在脚本加载时计算一次相对比例
 def calculate_relative_coords(abs_coords, base_w, base_h):
@@ -205,6 +215,16 @@ P64IN8_PLAYER6_COORD_REL_M4 = calculate_relative_coords(_64IN8_PLAYER6_COORD_ABS
 P64IN8_PLAYER7_COORD_REL_M4 = calculate_relative_coords(_64IN8_PLAYER7_COORD_ABS_M4, BASE_WIDTH, BASE_HEIGHT)
 P64IN8_PLAYER8_COORD_REL_M4 = calculate_relative_coords(_64IN8_PLAYER8_COORD_ABS_M4, BASE_WIDTH, BASE_HEIGHT)
 
+# Calculate relative coords for Mode 5 (Champion Arena)
+CHAMPION_PLAYER1_COORD_REL_M5 = calculate_relative_coords(_CHAMPION_PLAYER1_COORD_ABS_M5, BASE_WIDTH, BASE_HEIGHT)
+CHAMPION_PLAYER2_COORD_REL_M5 = calculate_relative_coords(_CHAMPION_PLAYER2_COORD_ABS_M5, BASE_WIDTH, BASE_HEIGHT)
+CHAMPION_PLAYER3_COORD_REL_M5 = calculate_relative_coords(_CHAMPION_PLAYER3_COORD_ABS_M5, BASE_WIDTH, BASE_HEIGHT)
+CHAMPION_PLAYER4_COORD_REL_M5 = calculate_relative_coords(_CHAMPION_PLAYER4_COORD_ABS_M5, BASE_WIDTH, BASE_HEIGHT)
+CHAMPION_PLAYER5_COORD_REL_M5 = calculate_relative_coords(_CHAMPION_PLAYER5_COORD_ABS_M5, BASE_WIDTH, BASE_HEIGHT)
+CHAMPION_PLAYER6_COORD_REL_M5 = calculate_relative_coords(_CHAMPION_PLAYER6_COORD_ABS_M5, BASE_WIDTH, BASE_HEIGHT)
+CHAMPION_PLAYER7_COORD_REL_M5 = calculate_relative_coords(_CHAMPION_PLAYER7_COORD_ABS_M5, BASE_WIDTH, BASE_HEIGHT)
+CHAMPION_PLAYER8_COORD_REL_M5 = calculate_relative_coords(_CHAMPION_PLAYER8_COORD_ABS_M5, BASE_WIDTH, BASE_HEIGHT)
+
 # 临时文件目录和文件名前缀
 TEMP_DIR = "temp" # <--- 新增：临时文件目录
 TEMP_PREFIX_PLAYER_INFO = "playerinfo" # 玩家信息1
@@ -228,6 +248,15 @@ FINAL_OUTPUT_M4_P6 = "mode4_player6_stitched.png"
 FINAL_OUTPUT_M4_P7 = "mode4_player7_stitched.png"
 FINAL_OUTPUT_M4_P8 = "mode4_player8_stitched.png"
 FINAL_OUTPUT_M4_OVERVIEW = "64in8_overview.png" # <--- 新增：模式4总览图文件名
+FINAL_OUTPUT_M5_P1 = "mode5_player1_stitched.png"
+FINAL_OUTPUT_M5_P2 = "mode5_player2_stitched.png"
+FINAL_OUTPUT_M5_P3 = "mode5_player3_stitched.png"
+FINAL_OUTPUT_M5_P4 = "mode5_player4_stitched.png"
+FINAL_OUTPUT_M5_P5 = "mode5_player5_stitched.png"
+FINAL_OUTPUT_M5_P6 = "mode5_player6_stitched.png"
+FINAL_OUTPUT_M5_P7 = "mode5_player7_stitched.png"
+FINAL_OUTPUT_M5_P8 = "mode5_player8_stitched.png"
+FINAL_OUTPUT_M5_OVERVIEW = "champion_overview.png"
 HORIZONTAL_SPACING = 50 # 横向拼接的间隔像素
 
 # 鼠标点击和截图之间的延迟（秒）
@@ -1289,6 +1318,90 @@ def main():
                 logging.error("模式4未能生成任何独立的玩家截图。")
                 actual_final_output_path = None
             # --- 总览图拼接结束 ---
+        elif CURRENT_MODE == 5:
+            logging.info("===== 运行模式 5: 冠军争霸模式 =====")
+            mode5_player_coords_rel = [
+                CHAMPION_PLAYER1_COORD_REL_M5, CHAMPION_PLAYER2_COORD_REL_M5,
+                CHAMPION_PLAYER3_COORD_REL_M5, CHAMPION_PLAYER4_COORD_REL_M5,
+                CHAMPION_PLAYER5_COORD_REL_M5, CHAMPION_PLAYER6_COORD_REL_M5,
+                CHAMPION_PLAYER7_COORD_REL_M5, CHAMPION_PLAYER8_COORD_REL_M5
+            ]
+            mode5_final_output_names = [
+                FINAL_OUTPUT_M5_P1, FINAL_OUTPUT_M5_P2,
+                FINAL_OUTPUT_M5_P3, FINAL_OUTPUT_M5_P4,
+                FINAL_OUTPUT_M5_P5, FINAL_OUTPUT_M5_P6,
+                FINAL_OUTPUT_M5_P7, FINAL_OUTPUT_M5_P8
+            ]
+            mode5_generated_files = []
+            actual_final_output_path = None # Initialize for mode 5
+
+            for i, player_coord_rel in enumerate(mode5_player_coords_rel, 1):
+                check_stop_signal()
+                logging.info(f"===== 开始处理模式5 - Player {i} =====")
+                temp_prefix = f"m5_p{i}_teams"
+                output_image_base_name = f"line_m5_p{i}.png"
+
+                player_stitched_temp_path = process_player(
+                    player_coord_rel=player_coord_rel,
+                    team_coords_rel=TEAM_COORDS_REL, # Reuses TEAM_COORDS_REL as per plan
+                    temp_prefix=temp_prefix,
+                    output_image=output_image_base_name,
+                    screenshot_region_rel=SCREENSHOT_REGION_REL, # Reuses SCREENSHOT_REGION_REL
+                    window=nikke_window,
+                    initial_delay=3.0
+                )
+                check_stop_signal()
+
+                if player_stitched_temp_path and os.path.exists(player_stitched_temp_path):
+                    final_output_name_base = mode5_final_output_names[i-1]
+                    
+                    unique_final_output_name = final_output_name_base
+                    counter = 1
+                    base_fn, ext_fn = os.path.splitext(final_output_name_base)
+                    while os.path.exists(unique_final_output_name):
+                        unique_final_output_name = f"{base_fn}_{counter}{ext_fn}"
+                        counter += 1
+                        if counter > 100:
+                            logging.error(f"无法为模式5 Player {i} 生成唯一最终文件名，已尝试到 '{unique_final_output_name}'")
+                            unique_final_output_name = None
+                            break
+                    
+                    if unique_final_output_name:
+                        try:
+                            shutil.copy2(player_stitched_temp_path, unique_final_output_name)
+                            logging.info(f"模式5 - Player {i} 的截图已成功保存为 '{unique_final_output_name}'")
+                            mode5_generated_files.append(unique_final_output_name)
+                        except Exception as e:
+                            logging.error(f"复制模式5 - Player {i} 的截图到根目录失败: {e}")
+                else:
+                    logging.error(f"处理模式5 - Player {i} 失败，未生成临时拼接图。")
+
+                check_stop_signal()
+                if i < len(mode5_player_coords_rel): # If not the last player
+                    logging.info(f"模式5 - Player {i} 处理完毕，点击退出...")
+                    if not click_coordinates(EXIT_COORD_REL, nikke_window):
+                        logging.warning(f"模式5 - Player {i} 后未能点击退出坐标。")
+                    time.sleep(1.0)
+                check_stop_signal()
+            
+            if mode5_generated_files and len(mode5_generated_files) == 8:
+                logging.info(f"模式5已生成 {len(mode5_generated_files)} 个独立的玩家截图，尝试拼接总览图...")
+                # Reuses stitch_mode4_overview as the logic is identical
+                overview_path = stitch_mode4_overview(mode5_generated_files, FINAL_OUTPUT_M5_OVERVIEW)
+                
+                if overview_path:
+                    logging.info(f"模式5总览图已成功生成: '{overview_path}'")
+                    actual_final_output_path = overview_path
+                else:
+                    logging.error("模式5总览图拼接失败。将仅保留独立的8张玩家截图。")
+                    actual_final_output_path = f"Mode 5 generated {len(mode5_generated_files)} separate files. Overview stitching failed."
+            elif mode5_generated_files:
+                logging.warning(f"模式5生成了 {len(mode5_generated_files)} 个文件，但不足8个，无法拼接总览图。")
+                actual_final_output_path = f"Mode 5 generated {len(mode5_generated_files)} separate files. Not enough files for overview."
+            else:
+                logging.error("模式5未能生成任何独立的玩家截图。")
+                actual_final_output_path = None
+            # --- 总览图拼接结束 ---
         else:
             logging.error(f"未知的 CURRENT_MODE: {CURRENT_MODE}")
 
@@ -1301,38 +1414,46 @@ def main():
         notification_title = None
 
         if CURRENT_MODE == 4:
-            notification_title = "模式4完成" # 标题可以保持一致
+            notification_title = "模式4完成"
             if actual_final_output_path and isinstance(actual_final_output_path, str) and os.path.exists(actual_final_output_path):
-                # 情况1: 总览图成功生成
                 notification_message = f"模式4操作完成！\n\n总览图已保存为: {os.path.basename(actual_final_output_path)}"
             elif actual_final_output_path and isinstance(actual_final_output_path, str) and "separate files" in actual_final_output_path:
-                # 情况2: 总览图拼接失败或文件不足，但生成了独立文件
-                # actual_final_output_path 会包含如 "Mode 4 generated X separate files. Overview stitching failed."
-                # 或 "Mode 4 generated X separate files. Not enough files for overview."
-                num_files_str = ''.join(filter(str.isdigit, actual_final_output_path.split('.')[0])) # 尝试提取数字
+                num_files_str = ''.join(filter(str.isdigit, actual_final_output_path.split('.')[0]))
                 num_files = int(num_files_str) if num_files_str else 0
-                
                 if "Overview stitching failed" in actual_final_output_path:
                     notification_message = f"模式4操作完成。\n\n成功生成 {num_files} 张独立截图。\n总览图拼接失败。"
                 elif "Not enough files for overview" in actual_final_output_path:
                      notification_message = f"模式4操作完成。\n\n成功生成 {num_files} 张独立截图。\n文件不足，无法拼接总览图。"
-                else: # Fallback, should not happen if logic above is correct
+                else:
                     notification_message = f"模式4操作完成。\n\n{actual_final_output_path}"
-            elif mode4_generated_files: # 有独立文件，但 actual_final_output_path 未按预期设置（备用）
+            elif mode4_generated_files:
                  notification_message = f"模式4操作完成！\n\n成功生成 {len(mode4_generated_files)} 张独立截图。\n总览图状态未知。"
             else:
-                # 情况3: 未能生成任何文件 (actual_final_output_path is None)
                 notification_message = "模式4操作失败。\n\n未能生成任何截图文件。"
-                logging.warning("模式4未能生成任何截图文件 (用于弹窗)。") # 确保日志记录
-        # For modes 1, 2, 3, actual_final_output_path should be a file path
+                logging.warning("模式4未能生成任何截图文件 (用于弹窗)。")
+        elif CURRENT_MODE == 5:
+            notification_title = "模式5完成"
+            if actual_final_output_path and isinstance(actual_final_output_path, str) and os.path.exists(actual_final_output_path):
+                notification_message = f"模式5操作完成！\n\n总览图已保存为: {os.path.basename(actual_final_output_path)}"
+            elif actual_final_output_path and isinstance(actual_final_output_path, str) and "separate files" in actual_final_output_path:
+                num_files_str = ''.join(filter(str.isdigit, actual_final_output_path.split('.')[0]))
+                num_files = int(num_files_str) if num_files_str else 0
+                if "Overview stitching failed" in actual_final_output_path:
+                    notification_message = f"模式5操作完成。\n\n成功生成 {num_files} 张独立截图。\n总览图拼接失败。"
+                elif "Not enough files for overview" in actual_final_output_path:
+                     notification_message = f"模式5操作完成。\n\n成功生成 {num_files} 张独立截图。\n文件不足，无法拼接总览图。"
+                else:
+                    notification_message = f"模式5操作完成。\n\n{actual_final_output_path}"
+            elif mode5_generated_files:
+                 notification_message = f"模式5操作完成！\n\n成功生成 {len(mode5_generated_files)} 张独立截图。\n总览图状态未知。"
+            else:
+                notification_message = "模式5操作失败。\n\n未能生成任何截图文件。"
+                logging.warning("模式5未能生成任何截图文件 (用于弹窗)。")
         elif actual_final_output_path and isinstance(actual_final_output_path, str) and os.path.exists(actual_final_output_path):
             notification_message = f"截图完成！\n\n文件已保存为: {os.path.basename(actual_final_output_path)}"
             notification_title = "操作完成"
         else:
-            # This case handles:
-            # 1. Modes 1,2,3 where actual_final_output_path was None or file didn't exist.
-            # 2. Mode 4 if it somehow didn't set mode4_generated_files and actual_final_output_path is also not indicative of success.
-            if CURRENT_MODE != 4 : # Avoid double logging for mode 4 if it already logged a warning
+            if CURRENT_MODE not in [4, 5] :
                 logging.warning("未找到最终输出文件或操作未成功完成，无法提供打开选项。")
 
         if notification_message and notification_title:
@@ -1384,10 +1505,10 @@ if __name__ == "__main__":
     # --- 管理员检查结束 ---
 
     # --- 获取用户选择的模式 ---
-    valid_modes = [1, 2, 3, 4] # 新增：包含模式3和模式4
+    valid_modes = [1, 2, 3, 4, 5] # 新增：包含模式3、模式4和模式5
     while CURRENT_MODE not in valid_modes:
         try:
-            mode_input = input(f"请选择运行模式（如果不知道选什么那就是选1）\n 1: 买马预测模式（请提前进入投注页面）\n 2: 复盘模式（请提前进入应援结果显示5队胜负的页面）\n 3: 我就要反买立此存档坐等装逼（或装死）- 请提前进入投注页面\n 4: 64进8专用模式 (请提前进入64进8的玩家列表页面)\n 请输入你的选择： ") # 更新提示信息
+            mode_input = input(f"请选择运行模式（如果不知道选什么那就是选1）\n 1: 买马预测模式（请提前进入【投注】页面）\n 2: 复盘模式（请提前进入应援结果【显示5队胜负】的页面）\n 3: 我就要反买立此存档坐等装逼（或装死）- 请提前进入投注页面\n 4: 64进8专用模式 (请提前进入64进8的玩家列表页面)\n 5: 冠军争霸模式 (请提前进入冠军争霸的玩家列表页面)\n 请输入你的选择： ") # 更新提示信息
             mode_int = int(mode_input)
             if mode_int in valid_modes:
                 CURRENT_MODE = mode_int
@@ -1404,11 +1525,7 @@ if __name__ == "__main__":
              sys.exit(0)
     # --- 模式选择结束 ---
 
-    # 确保有足够的权限（特别是对于键盘监听和屏幕控制）
-    # 在某些系统上可能需要以管理员身份运行
-    
-    # 添加一个启动延迟，给用户时间切换到目标窗口或准备
-    # (你的日志显示为5秒，这里保持一致，如果需要改回3秒请修改)
+    # 添加一个启动5s延迟，给用户时间切换到目标窗口或准备
     start_delay = 5 
     logging.info(f"脚本将在 {start_delay} 秒后开始... 请准备好 NIKKE 窗口。")
     
