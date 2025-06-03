@@ -900,7 +900,7 @@ def process_single_match(file_prefix, match_name,
             team_img_paths.append(team_img_path)
             if stop_requested: return False
 
-        # A-5 / A-8 (cont.): 垂直拼接玩家信息截图和队伍截图 (共 3 + 5 = 8 张) (使用 file_prefix)
+        # A-5 / A-8 (cont.): 垂直拼接玩家信息截图和队伍截图 (共 8 张) (使用 file_prefix)
         player_stitched_filename = f"{file_prefix}_{match_name}_{player_coord_name}.png"
         player_stitched_path = os.path.join(TEMP_DIR, player_stitched_filename)
         # 准备拼接列表：先放3张信息图，再放5张队伍图
