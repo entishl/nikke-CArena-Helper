@@ -70,3 +70,7 @@ venv.bak/
 *.log
 local_settings.py
 mode5_implementation_plan.md
+cjjc_003_3.py
+output/
+final/
+output.zip
