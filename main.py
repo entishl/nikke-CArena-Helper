@@ -1305,11 +1305,19 @@ def main():
                 
                 if overview_path:
                     logging.info(f"模式4总览图已成功生成: '{overview_path}'")
-                    # actual_final_output_path 用于后续的弹窗通知
                     actual_final_output_path = overview_path
+                    # 删除独立的玩家截图
+                    logging.info("正在删除模式4的独立玩家截图...")
+                    for file_path in mode4_generated_files:
+                        try:
+                            if os.path.exists(file_path):
+                                os.remove(file_path)
+                                logging.debug(f"已删除模式4独立截图: {file_path}")
+                        except OSError as e:
+                            logging.warning(f"无法删除模式4独立截图 '{file_path}': {e}")
+                    mode4_generated_files = [] # 清空列表，因为文件已被删除
                 else:
                     logging.error("模式4总览图拼接失败。将仅保留独立的8张玩家截图。")
-                    # 保留原始行为，通知用户生成了多少个独立文件
                     actual_final_output_path = f"Mode 4 generated {len(mode4_generated_files)} separate files. Overview stitching failed."
             elif mode4_generated_files: # 如果生成了文件，但不足8个
                 logging.warning(f"模式4生成了 {len(mode4_generated_files)} 个文件，但不足8个，无法拼接总览图。")
@@ -1392,6 +1400,16 @@ def main():
                 if overview_path:
                     logging.info(f"模式5总览图已成功生成: '{overview_path}'")
                     actual_final_output_path = overview_path
+                    # 删除独立的玩家截图
+                    logging.info("正在删除模式5的独立玩家截图...")
+                    for file_path in mode5_generated_files:
+                        try:
+                            if os.path.exists(file_path):
+                                os.remove(file_path)
+                                logging.debug(f"已删除模式5独立截图: {file_path}")
+                        except OSError as e:
+                            logging.warning(f"无法删除模式5独立截图 '{file_path}': {e}")
+                    mode5_generated_files = [] # 清空列表，因为文件已被删除
                 else:
                     logging.error("模式5总览图拼接失败。将仅保留独立的8张玩家截图。")
                     actual_final_output_path = f"Mode 5 generated {len(mode5_generated_files)} separate files. Overview stitching failed."
@@ -1418,17 +1436,19 @@ def main():
             if actual_final_output_path and isinstance(actual_final_output_path, str) and os.path.exists(actual_final_output_path):
                 notification_message = f"模式4操作完成！\n\n总览图已保存为: {os.path.basename(actual_final_output_path)}"
             elif actual_final_output_path and isinstance(actual_final_output_path, str) and "separate files" in actual_final_output_path:
-                num_files_str = ''.join(filter(str.isdigit, actual_final_output_path.split('.')[0]))
-                num_files = int(num_files_str) if num_files_str else 0
-                if "Overview stitching failed" in actual_final_output_path:
-                    notification_message = f"模式4操作完成。\n\n成功生成 {num_files} 张独立截图。\n总览图拼接失败。"
-                elif "Not enough files for overview" in actual_final_output_path:
+                # This case implies overview stitching failed or not enough files, but some individual files might exist
+                # if mode4_generated_files is not empty (meaning they weren't deleted due to successful overview)
+                if "Overview stitching failed" in actual_final_output_path and mode4_generated_files:
+                     num_files = len(mode4_generated_files)
+                     notification_message = f"模式4操作完成。\n\n成功生成 {num_files} 张独立截图。\n总览图拼接失败。"
+                elif "Not enough files for overview" in actual_final_output_path and mode4_generated_files:
+                     num_files = len(mode4_generated_files)
                      notification_message = f"模式4操作完成。\n\n成功生成 {num_files} 张独立截图。\n文件不足，无法拼接总览图。"
-                else:
-                    notification_message = f"模式4操作完成。\n\n{actual_final_output_path}"
-            elif mode4_generated_files:
-                 notification_message = f"模式4操作完成！\n\n成功生成 {len(mode4_generated_files)} 张独立截图。\n总览图状态未知。"
-            else:
+                else: # Fallback or if mode4_generated_files was empty
+                    notification_message = "模式4操作失败或未生成预期的总览图。"
+            elif not actual_final_output_path and mode4_generated_files: # Overview failed, but individual files exist
+                 notification_message = f"模式4操作完成！\n\n成功生成 {len(mode4_generated_files)} 张独立截图。\n总览图拼接失败或未执行。"
+            elif not actual_final_output_path and not mode4_generated_files : # Complete failure
                 notification_message = "模式4操作失败。\n\n未能生成任何截图文件。"
                 logging.warning("模式4未能生成任何截图文件 (用于弹窗)。")
         elif CURRENT_MODE == 5:
@@ -1436,17 +1456,17 @@ def main():
             if actual_final_output_path and isinstance(actual_final_output_path, str) and os.path.exists(actual_final_output_path):
                 notification_message = f"模式5操作完成！\n\n总览图已保存为: {os.path.basename(actual_final_output_path)}"
             elif actual_final_output_path and isinstance(actual_final_output_path, str) and "separate files" in actual_final_output_path:
-                num_files_str = ''.join(filter(str.isdigit, actual_final_output_path.split('.')[0]))
-                num_files = int(num_files_str) if num_files_str else 0
-                if "Overview stitching failed" in actual_final_output_path:
-                    notification_message = f"模式5操作完成。\n\n成功生成 {num_files} 张独立截图。\n总览图拼接失败。"
-                elif "Not enough files for overview" in actual_final_output_path:
+                if "Overview stitching failed" in actual_final_output_path and mode5_generated_files:
+                     num_files = len(mode5_generated_files)
+                     notification_message = f"模式5操作完成。\n\n成功生成 {num_files} 张独立截图。\n总览图拼接失败。"
+                elif "Not enough files for overview" in actual_final_output_path and mode5_generated_files:
+                     num_files = len(mode5_generated_files)
                      notification_message = f"模式5操作完成。\n\n成功生成 {num_files} 张独立截图。\n文件不足，无法拼接总览图。"
-                else:
-                    notification_message = f"模式5操作完成。\n\n{actual_final_output_path}"
-            elif mode5_generated_files:
-                 notification_message = f"模式5操作完成！\n\n成功生成 {len(mode5_generated_files)} 张独立截图。\n总览图状态未知。"
-            else:
+                else: # Fallback
+                    notification_message = "模式5操作失败或未生成预期的总览图。"
+            elif not actual_final_output_path and mode5_generated_files: # Overview failed, but individual files exist
+                 notification_message = f"模式5操作完成！\n\n成功生成 {len(mode5_generated_files)} 张独立截图。\n总览图拼接失败或未执行。"
+            elif not actual_final_output_path and not mode5_generated_files: # Complete failure
                 notification_message = "模式5操作失败。\n\n未能生成任何截图文件。"
                 logging.warning("模式5未能生成任何截图文件 (用于弹窗)。")
         elif actual_final_output_path and isinstance(actual_final_output_path, str) and os.path.exists(actual_final_output_path):
