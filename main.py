@@ -1,17 +1,17 @@
-import ctypes # <--- 新增：用于调用 Windows API
-import sys   # <--- 新增（如果尚未导入）：用于检查平台和退出
-import os    # <--- 新增：检查环境变量 (备用检查方式，虽然主要用 ctypes)
+import ctypes
+import sys
+import os
 import pygetwindow
 import pyautogui
 import time
 from PIL import Image
 import keyboard
 import logging
-import psutil # <--- 新增：用于查找进程
-import win32gui # <--- 新增：用于查找窗口句柄
-import win32process # <--- 新增：用于获取窗口进程ID
-import win32con # <--- 新增：用于窗口显示常量
-import shutil # <--- 新增：用于删除目录
+import psutil
+import win32gui
+import win32process
+import win32con
+import shutil
 
 
 # --- 配置日志记录 ---
@@ -282,10 +282,8 @@ def is_admin():
             return False
     else:
         # 在非 Windows 系统上，此检查不适用
-        # 你可以根据需要返回 True 或 False，或引发错误
-        # 这里我们假定在非 Windows 上不需要管理员权限
         logging.info("非 Windows 平台，跳过管理员权限检查。")
-        return True # 或者 False，取决于你的跨平台策略
+        return True
 
 def setup_stop_hotkey():
     """设置停止脚本的热键。"""
@@ -383,7 +381,6 @@ def find_and_activate_window(process_name: str = "nikke.exe"):
 
         # ---- 修改开始 ----
         # time.sleep(0.7) # 等待后台操作完成
-        # 移除错误的 window.update_state()
         # 直接检查前台窗口句柄
         time.sleep(1) # 增加这里的延迟，给系统更多时间切换前台窗口
         foreground_hwnd = win32gui.GetForegroundWindow()
@@ -396,7 +393,6 @@ def find_and_activate_window(process_name: str = "nikke.exe"):
               # sys.exit("无法确认目标窗口已激活。")
 
         # 返回一个 pygetwindow 对象（如果后续代码需要用到它的属性的话）
-        # 但要注意这个对象的 isActive 属性可能不是最新的
         try:
             window = pygetwindow.Win32Window(target_hwnd)
             return window
