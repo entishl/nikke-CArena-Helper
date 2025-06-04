@@ -9,6 +9,24 @@ import os
 import keyboard
 from PIL import Image, ImageTk
 
+def resource_path(relative_path_to_join):
+    """
+    获取资源的绝对路径，适用于开发环境和 PyInstaller 打包后。
+    relative_path_to_join 应该是像 "assets/image.png" 这样的路径。
+    """
+    if hasattr(sys, 'frozen'):  # Bundled by PyInstaller
+        if hasattr(sys, '_MEIPASS'):
+            # --onefile mode: base_path is the temp extraction folder
+            base_path = sys._MEIPASS
+        else:
+            # Directory mode: base_path is the directory of the executable
+            base_path = os.path.dirname(sys.executable)
+    else:
+        # Development mode: base_path is the script's current working directory (os.abspath("."))
+        base_path = os.path.abspath(".")
+    
+    return os.path.join(base_path, relative_path_to_join)
+
 class App(ctk.CTk):
     def __init__(self):
         super().__init__()
@@ -160,7 +178,9 @@ class App(ctk.CTk):
         self.log_textbox.grid_remove()  # Hide log by removing from grid
         self.image_label.grid(row=0, column=0, sticky="nsew") # Show image label
 
-        image_path = os.path.join("assets", f"{mode_value}.png")
+        # Use resource_path to get the correct path to assets
+        image_path = resource_path(os.path.join("assets", f"{mode_value}.png"))
+        logging.debug(f"Attempting to load image from: {image_path}")
         
         # Forcing display_area to update its size before getting width/height
         self.display_area.update_idletasks()
@@ -390,17 +410,36 @@ class GUILogHandler(logging.Handler):
         self.callback(msg) # Callback expects to add its own newline if needed
 
 if __name__ == "__main__":
-    # Create assets directory if it doesn't exist
-    if not os.path.exists("assets"):
-        os.makedirs("assets")
-        print("Created 'assets' directory. Please place 1.png to 9.png inside it.")
+    # This logic for creating 'assets' is strictly for development mode.
+    # It should not run when the application is bundled by PyInstaller.
+    if not getattr(sys, 'frozen', False): # True if bundled by PyInstaller
+        assets_dev_path = "assets" # Relative to script in dev mode
+        if not os.path.exists(assets_dev_path):
+            try:
+                os.makedirs(assets_dev_path)
+                print(f"DEV MODE: Created '{assets_dev_path}' directory. Please place 1.png to 9.png inside it.")
+            except OSError as e:
+                print(f"DEV MODE: Error creating '{assets_dev_path}' directory: {e}")
     
     # Check for Pillow
     try:
         from PIL import Image, ImageTk
     except ImportError:
         print("错误: Pillow 库未安装。请运行 'pip install Pillow' 来安装。")
+        # Attempt to show a Tkinter error dialog if possible, then exit
+        try:
+            root = tk.Tk()
+            root.withdraw() # Hide the main window
+            tk.messagebox.showerror("依赖错误", "错误: Pillow 库未安装。\n请运行 'pip install Pillow' 来安装。")
+        except:
+            pass # If Tkinter itself fails, just print to console
         sys.exit(1)
+
+    # Configure basic logging for direct script execution if no handlers are set up
+    # This helps see debug messages from resource_path when running main_gui.py directly
+    if not logging.getLogger().hasHandlers():
+        logging.basicConfig(level=logging.DEBUG,
+                            format='%(asctime)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s')
 
     app = App()
     app.mainloop()
