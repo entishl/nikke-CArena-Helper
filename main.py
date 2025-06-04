@@ -13,7 +13,7 @@ import win32process
 import win32con
 import shutil
 import zipfile
-
+import traceback
 
 # --- 配置日志记录 ---
 # 设置日志记录器
@@ -901,592 +901,6 @@ def process_player(player_coord_rel: tuple, team_coords_rel: list, temp_prefix: 
         logging.warning(f"未能截取玩家信息区域 '{player_info_temp_filename}'。")
         # 即使玩家信息截图失败，也继续尝试截取队伍信息
     check_stop_signal()
-def get_pixel_color_from_rel(relative_coord: tuple, window: pygetwindow.Win32Window):
-    """
-    根据相对坐标和当前窗口客户区，计算实际屏幕坐标并获取该点的像素RGB颜色。
-    相对坐标是 (比例X, 比例Y)，相对于窗口的客户区。
-    """
-    check_stop_signal()
-    if not isinstance(relative_coord, tuple) or len(relative_coord) != 2:
-        logging.error(f"无效的相对坐标格式: {relative_coord}. 需要 (rel_x, rel_y)。")
-        return None
-
-    try:
-        hwnd = window._hWnd
-        if not hwnd:
-            logging.error("错误：无法从 pygetwindow 对象获取窗口句柄 (HWND) for pixel color。")
-            return None
-
-        # 获取客户区矩形（相对于窗口左上角）
-        client_rect_left, client_rect_top, client_rect_right, client_rect_bottom = win32gui.GetClientRect(hwnd)
-        client_width = client_rect_right - client_rect_left
-        client_height = client_rect_bottom - client_rect_top
-
-        if client_width <= 0 or client_height <= 0:
-            logging.error(f"错误：获取到的窗口客户区尺寸无效 (Width={client_width}, Height={client_height}) for pixel color。")
-            return None
-
-        # 将客户区的左上角坐标 (通常是0,0) 转换为屏幕坐标
-        screen_client_origin_x, screen_client_origin_y = win32gui.ClientToScreen(hwnd, (client_rect_left, client_rect_top))
-
-        # 基于客户区计算实际的屏幕坐标
-        screen_x = screen_client_origin_x + round(relative_coord[0] * client_width)
-        screen_y = screen_client_origin_y + round(relative_coord[1] * client_height)
-
-        logging.info(f"相对坐标 {relative_coord} -> 屏幕坐标 ({screen_x}, {screen_y}) for pixel color (基于窗口 '{window.title}' HWND:{hwnd} 客户区尺寸 {client_width}x{client_height} @ ({screen_client_origin_x},{screen_client_origin_y}))")
-        
-        # pyautogui.pixel() 需要绝对屏幕坐标
-        color = pyautogui.pixel(screen_x, screen_y)
-        logging.info(f"颜色拾取成功 at ({screen_x}, {screen_y}): RGB {color}")
-        return color
-
-    except Exception as e:
-        logging.error(f"获取相对坐标 {relative_coord} 的像素颜色时出错: {e}")
-        return None
-    time.sleep(0.5) # 截图后短暂等待
-def cleanup_temp_files_carena(file_prefix: str, match_name: str):
-    """
-    清理指定C_Arena赛事的临时截图文件 (使用传入的文件前缀)。
-    路径基于 main.py 的 TEMP_DIR。
-    """
-    logging.info(f"  清理C_Arena临时文件 for {file_prefix}_{match_name}...")
-    files_to_remove = []
-    # 队伍截图
-    for player_num_suffix in ["player1_click_carena", "player2_click_carena"]: # 使用 main.py 中的坐标键作为参考
-        # 玩家相关的队伍截图 (5个队伍)
-        for team_index in range(1, 6): # team1 to team5
-            files_to_remove.append(os.path.join(TEMP_DIR, f"{file_prefix}_{match_name}_{player_num_suffix}_team{team_index}.png"))
-        
-        # 玩家信息截图 (3个)
-        files_to_remove.append(os.path.join(TEMP_DIR, f"{file_prefix}_{match_name}_{player_num_suffix}_playerinfo.png"))
-        files_to_remove.append(os.path.join(TEMP_DIR, f"{file_prefix}_{match_name}_{player_num_suffix}_player_info_2.png"))
-        files_to_remove.append(os.path.join(TEMP_DIR, f"{file_prefix}_{match_name}_{player_num_suffix}_player_info_3.png"))
-        
-        # 垂直拼接的该玩家的完整图 (包含信息和队伍)
-        files_to_remove.append(os.path.join(TEMP_DIR, f"{file_prefix}_{match_name}_{player_num_suffix}.png"))
-
-    # 赛果截图
-    files_to_remove.append(os.path.join(TEMP_DIR, f"{file_prefix}_{match_name}_result.png"))
-
-    removed_count = 0
-    for file_path in files_to_remove:
-        if os.path.exists(file_path):
-            try:
-                os.remove(file_path)
-                removed_count += 1
-                logging.debug(f"    已删除C_Arena临时文件: {file_path}")
-            except OSError as e:
-                logging.warning(f"    警告：无法删除C_Arena临时文件 {file_path}: {e}")
-    logging.info(f"  C_Arena临时文件清理完成，尝试删除 {len(files_to_remove)} 个文件，实际删除 {removed_count} 个。")
-
-def process_single_match_carena(
-    nikke_window: pygetwindow.Win32Window,
-    current_mode: int, # 6, 7, or 8
-    file_prefix: str,
-    match_name: str,
-    target_for_4in2_1_match_key: str,
-    first_target_for_4in2_2_match_key: str,
-    second_target_for_4in2_2_match_key: str, # This should be the key for the "_real_click"
-    target_for_2in1_match_key: str
-):
-    """
-    处理单个C_Arena赛事的完整流程。
-    使用 main.py 的函数和常量。
-    """
-    # global stop_script # Replaced by stop_script_event
-    
-    logging.info(f"\n--- 开始处理C_Arena赛事 {file_prefix} - {match_name} (模式 {current_mode}) ---")
-    if stop_script_event and stop_script_event.is_set():
-        logging.info(f"C_Arena赛事 {file_prefix} - {match_name} 在开始前被中断。")
-        return False
-
-    # 根据当前模式选择坐标字典
-    active_coords_dict = C_ARENA_MODE67_COORDS_REL if current_mode in [6, 7] else C_ARENA_MODE8_COORDS_REL
-
-    # A-1: 根据比赛类型执行不同的点击操作进入赛果界面
-    logging.info(f"  执行初始点击操作 for {match_name}...")
-    click_success = False
-    
-    actual_match_coord_key_to_click = match_name # Default for 8in4 in mode 6/7
-    if current_mode == 8 and "match_map" in active_coords_dict:
-        actual_match_coord_key_to_click = active_coords_dict["match_map"].get(match_name, match_name)
-        logging.info(f"  模式 8 映射: {match_name} -> {actual_match_coord_key_to_click}")
-
-    if match_name.startswith("8in4"):
-        key_to_use_for_8in4 = actual_match_coord_key_to_click
-        if current_mode != 8: # For mode 6 and 7, add suffix
-            key_to_use_for_8in4 = f"{actual_match_coord_key_to_click}_click"
-        click_success = click_coordinates(active_coords_dict[key_to_use_for_8in4], nikke_window)
-        if click_success: time.sleep(3) # c_arena_reviewer had delay_after=3
-    elif match_name == "4in2_1":
-        click_success = click_coordinates(active_coords_dict[target_for_4in2_1_match_key], nikke_window)
-        if click_success: time.sleep(1.5)
-    elif match_name == "4in2_2":
-        if click_coordinates(active_coords_dict[first_target_for_4in2_2_match_key], nikke_window):
-            time.sleep(1.0)
-            click_success = click_coordinates(active_coords_dict[second_target_for_4in2_2_match_key], nikke_window)
-            if click_success: time.sleep(1.5)
-        else:
-            click_success = False
-    elif match_name == "2in1":
-        click_success = click_coordinates(active_coords_dict[target_for_2in1_match_key], nikke_window)
-        if click_success: time.sleep(1.5)
-    else:
-        logging.error(f"错误：未知的 match_name '{match_name}'，无法执行初始点击。")
-        return False
-
-    if not click_success:
-        logging.error(f"错误：执行 {match_name} 的初始点击操作失败。")
-        return False
-    if stop_script_event and stop_script_event.is_set(): return False
-
-    # A-2: 截图赛果区域
-    result_img_path = os.path.join(TEMP_DIR, f"{file_prefix}_{match_name}_result.png")
-    if not take_screenshot(active_coords_dict["result_region_carena"], nikke_window, result_img_path):
-        logging.error(f"未能截取赛果图 for {match_name}")
-        return False
-    if stop_script_event and stop_script_event.is_set(): return False
-
-    player_stitched_paths = {} 
-    player_info_and_teams_screenshot_paths = {} 
-
-    # 处理两个玩家
-    for player_num_idx, player_key_suffix in enumerate(["player1_click_carena", "player2_click_carena"], 1):
-        if stop_script_event and stop_script_event.is_set(): return False
-        logging.info(f"-- 处理C_Arena玩家 {player_num_idx} ({player_key_suffix}) --")
-        
-        # A-3 / A-7: 点击玩家头像
-        if not click_coordinates(active_coords_dict[player_key_suffix], nikke_window):
-            logging.error(f"未能点击玩家 {player_num_idx} 头像")
-            return False
-        time.sleep(3) # 等待队伍界面加载
-        if stop_script_event and stop_script_event.is_set(): return False
-
-        current_player_screenshots = []
-        
-        # 截图玩家信息区域 1 (使用 main.py 的 PLAYER_INFO_REGION_REL)
-        p_info1_fname = f"{file_prefix}_{match_name}_{player_key_suffix}_playerinfo.png"
-        p_info1_fpath = os.path.join(TEMP_DIR, p_info1_fname)
-        if not take_screenshot(PLAYER_INFO_REGION_REL, nikke_window, p_info1_fpath): return False
-        current_player_screenshots.append(p_info1_fpath)
-        if stop_script_event and stop_script_event.is_set(): return False
-
-        # 点击 player_detailinfo_2, 等待, 截图 player_info_2 (使用 main.py 的 PLAYER_INFO_2_REGION_REL)
-        if not click_coordinates(active_coords_dict["player_detailinfo_2_click_carena"], nikke_window): return False
-        time.sleep(2.5)
-        p_info2_fname = f"{file_prefix}_{match_name}_{player_key_suffix}_player_info_2.png"
-        p_info2_fpath = os.path.join(TEMP_DIR, p_info2_fname)
-        if not take_screenshot(PLAYER_INFO_2_REGION_REL, nikke_window, p_info2_fpath): return False
-        current_player_screenshots.append(p_info2_fpath)
-        if stop_script_event and stop_script_event.is_set(): return False
-        
-        # 点击 player_detailinfo_3, 等待, 截图 player_info_3 (使用 C_ARENA_MODE67_COORDS_REL["player_info_3_region_carena"])
-        if not click_coordinates(active_coords_dict["player_detailinfo_3_click_carena"], nikke_window): return False
-        time.sleep(1.0)
-        p_info3_fname = f"{file_prefix}_{match_name}_{player_key_suffix}_player_info_3.png"
-        p_info3_fpath = os.path.join(TEMP_DIR, p_info3_fname)
-        if not take_screenshot(active_coords_dict["player_info_3_region_carena"], nikke_window, p_info3_fpath): return False
-        current_player_screenshots.append(p_info3_fpath)
-        if stop_script_event and stop_script_event.is_set(): return False
-
-        # 点击 player_detailinfo_close
-        if not click_coordinates(active_coords_dict["player_detailinfo_close_click_carena"], nikke_window): return False
-        time.sleep(0.5)
-        if stop_script_event and stop_script_event.is_set(): return False
-
-        # 循环点击5个队伍并截图 (使用 main.py 的 TEAM_COORDS_REL 和 SCREENSHOT_REGION_REL)
-        for i, team_coord_rel in enumerate(TEAM_COORDS_REL, 1):
-            if stop_script_event and stop_script_event.is_set(): return False
-            if not click_coordinates(team_coord_rel, nikke_window):
-                logging.error(f"未能点击玩家 {player_num_idx} 的队伍 {i}")
-                return False
-            time.sleep(1.5) # 增加队伍切换等待 (原c_arena有此延迟)
-            if stop_script_event and stop_script_event.is_set(): return False
-
-            team_img_fname = f"{file_prefix}_{match_name}_{player_key_suffix}_team{i}.png"
-            team_img_fpath = os.path.join(TEMP_DIR, team_img_fname)
-            if not take_screenshot(SCREENSHOT_REGION_REL, nikke_window, team_img_fpath): 
-                logging.error(f"未能截取玩家 {player_num_idx} 的队伍 {i} 截图")
-                return False
-            current_player_screenshots.append(team_img_fpath)
-            if stop_script_event and stop_script_event.is_set(): return False
-        
-        player_info_and_teams_screenshot_paths[player_num_idx] = current_player_screenshots
-
-        # 垂直拼接玩家信息截图和队伍截图 (共 3+5=8 张)
-        player_stitched_fname = f"{file_prefix}_{match_name}_{player_key_suffix}.png" # Stitched file for this player
-        player_stitched_fpath = os.path.join(TEMP_DIR, player_stitched_fname)
-        
-        if not stitch_images_vertically(current_player_screenshots, player_stitched_fpath):
-            logging.error(f"玩家 {player_num_idx} 的截图垂直拼接失败")
-            player_stitched_paths[player_num_idx] = None
-        else:
-            player_stitched_paths[player_num_idx] = player_stitched_fpath
-        if stop_script_event and stop_script_event.is_set(): return False
-
-        # 点击队伍界面关闭 (使用 main.py 的 EXIT_COORD_REL)
-        if not click_coordinates(EXIT_COORD_REL, nikke_window): 
-            logging.error(f"未能为玩家 {player_num_idx} 点击关闭队伍界面")
-            return False
-        time.sleep(1.0)
-        if stop_script_event and stop_script_event.is_set(): return False
-
-    # A-10: 水平拼接 Player1, Result, Player2
-    final_img_fname = f"{file_prefix}_{match_name}.png"
-    final_img_fpath = os.path.join(FINAL_OUTPUT_DIR, final_img_fname) # Save to new FINAL_OUTPUT_DIR
-
-    player1_stitched_img = player_stitched_paths.get(1)
-    player2_stitched_img = player_stitched_paths.get(2)
-
-    images_to_stitch_horizontally = []
-    if player1_stitched_img and os.path.exists(player1_stitched_img):
-        images_to_stitch_horizontally.append(player1_stitched_img)
-    else:
-        logging.warning(f"玩家1的拼接图丢失 for {match_name}")
-    
-    if os.path.exists(result_img_path):
-        images_to_stitch_horizontally.append(result_img_path)
-    else:
-        logging.warning(f"赛果图丢失 for {match_name}")
-
-    if player2_stitched_img and os.path.exists(player2_stitched_img):
-        images_to_stitch_horizontally.append(player2_stitched_img)
-    else:
-        logging.warning(f"玩家2的拼接图丢失 for {match_name}")
-
-    if len(images_to_stitch_horizontally) == 3:
-        if not stitch_images_horizontally(images_to_stitch_horizontally, final_img_fpath, spacing=0, background_color=(255,255,255)): # c_arena uses white bg, no spacing
-            logging.error(f"最终图像水平拼接失败 for {file_prefix}_{match_name}")
-            # Continue to close result even if stitching fails
-    else:
-        logging.warning(f"缺少用于最终水平拼接的图片 for {file_prefix}_{match_name}。需要3张，实际{len(images_to_stitch_horizontally)}张。跳过拼接。")
-
-    if stop_script_event and stop_script_event.is_set(): return False
-
-    # A-11: 点击赛果界面关闭
-    if not click_coordinates(active_coords_dict["close_result_click_carena"], nikke_window): 
-        logging.error(f"未能点击关闭赛果界面 for {match_name}")
-        return False
-    time.sleep(1.5)
-    if stop_script_event and stop_script_event.is_set(): return False
-
-    # 清理本次赛事的临时文件
-    cleanup_temp_files_carena(file_prefix, match_name)
-
-    logging.info(f"--- 完成处理C_Arena赛事 {file_prefix} - {match_name} ---")
-    return True
-    logging.info(f"  C_Arena临时文件清理完成，尝试删除 {len(files_to_remove)} 个文件，实际删除 {removed_count} 个。")
-# --- C_Arena Reviewer Mode Logics (Modes 6, 7, 8) ---
-
-MATCH_NAMES_CARENA = ["8in4_1", "8in4_2", "8in4_3", "8in4_4", "4in2_1", "4in2_2", "2in1"] # From c_arena_reviewer
-
-def run_carena_mode_logic(nikke_window: pygetwindow.Win32Window, mode: int):
-    """
-    处理C_Arena截图模式 (模式 6, 7, 8) 的核心逻辑。
-    mode 6: 完整模式 (8个组)
-    mode 7: 单组模式 (当前组)
-    mode 8: 冠军赛模式 (当前界面)
-    """
-    # global stop_script # Replaced by stop_script_event
-    logging.info(f"===== 运行C_Arena模式 {mode} =====")
-
-    active_coords_dict = C_ARENA_MODE67_COORDS_REL if mode in [6, 7] else C_ARENA_MODE8_COORDS_REL
-    
-    groups_to_process = []
-    file_prefix_base = ""
-
-    if mode == 6: # 完整模式
-        logging.info("模式 6: 完整模式 (处理所有8个组)")
-        groups_to_process = range(1, 9) # group_1 to group_8
-        # file_prefix_base will be set inside the loop
-    elif mode == 7: # 单组模式
-        logging.info("模式 7: 单组模式 (仅处理当前组)")
-        groups_to_process = [1] # Placeholder for single run
-        file_prefix_base = "group1_current" # Fixed prefix for current group
-    elif mode == 8: # 冠军赛模式
-        logging.info("模式 8: 冠军赛模式 (处理当前界面)")
-        groups_to_process = [1] # Placeholder for single run
-        file_prefix_base = "champain_current" # Fixed prefix for champion mode
-    else:
-        logging.error(f"未知的C_Arena模式: {mode}")
-        return
-
-    total_matches_overall = len(MATCH_NAMES_CARENA) * len(groups_to_process)
-    completed_matches_overall = 0
-    
-    # --- 确定 4in2 和 2in1 的点击目标 (基于颜色拾取) ---
-    # 这些键名需要与 C_ARENA_MODE67_COORDS_REL 和 C_ARENA_MODE8_COORDS_REL 中的定义对应
-    # For Mode 6/7
-    color_check_coord1_key_m67 = "4in2_1_color_check_coord"
-    color_check_coord2_key_m67 = "4in2_2_color_check_coord"
-    second_target_4in2_2_m67 = "4in2_2_real_click"
-    # For Mode 8
-    color_check_coord1_key_m8 = active_coords_dict.get("color_check_coord1_key", "mode3_4in2_1_color_check_coord")
-    color_check_coord2_key_m8 = active_coords_dict.get("color_check_coord2_key", "mode3_4in2_2_color_check_coord")
-    second_target_4in2_2_m8 = "4in2_2_real_click" # Mode 8 also uses the "_real_click"
-
-    target_4in2_1_key = ""
-    first_target_4in2_2_key = ""
-    second_target_4in2_2_key_final = "" # This will be the "_real_click" key
-    target_2in1_key = ""
-
-    # Select appropriate keys based on mode
-    current_color_check_coord1_key = color_check_coord1_key_m8 if mode == 8 else color_check_coord1_key_m67
-    current_color_check_coord2_key = color_check_coord2_key_m8 if mode == 8 else color_check_coord2_key_m67
-    second_target_4in2_2_key_final = second_target_4in2_2_m8 if mode == 8 else second_target_4in2_2_m67
-
-
-    logging.info(f"  正在确定 4in2 和 2in1 的点击目标 (基于 {current_color_check_coord1_key} 和 {current_color_check_coord2_key})...")
-    color1_rel_coord = active_coords_dict.get(current_color_check_coord1_key)
-    color2_rel_coord = active_coords_dict.get(current_color_check_coord2_key)
-
-    if not color1_rel_coord or not color2_rel_coord:
-        logging.error(f"错误：无法在坐标字典中找到颜色检查点: {current_color_check_coord1_key} 或 {current_color_check_coord2_key}")
-        return
-
-    color1_rgb = get_pixel_color_from_rel(color1_rel_coord, nikke_window)
-    color2_rgb = get_pixel_color_from_rel(color2_rel_coord, nikke_window)
-
-    if color1_rgb and color2_rgb:
-        b1 = color1_rgb[2]
-        b2 = color2_rgb[2]
-        logging.info(f"  颜色比较: {current_color_check_coord1_key} B={b1}, {current_color_check_coord2_key} B={b2}")
-        if b2 > b1:
-            target_2in1_key = current_color_check_coord2_key
-            first_target_4in2_2_key = current_color_check_coord2_key
-            target_4in2_1_key = current_color_check_coord1_key
-            logging.info(f"  判定: {current_color_check_coord2_key} (B={b2}) 的 B 值更大。")
-        else:
-            target_2in1_key = current_color_check_coord1_key
-            first_target_4in2_2_key = current_color_check_coord1_key
-            target_4in2_1_key = current_color_check_coord2_key
-            logging.info(f"  判定: {current_color_check_coord1_key} (B={b1}) 的 B 值更大或相等。")
-    else:
-        logging.warning(f"  警告：无法获取颜色，将使用默认点击目标。4in2_1 点击 {current_color_check_coord1_key}, 4in2_2 先点 {current_color_check_coord1_key} 再点 {second_target_4in2_2_key_final}, 2in1 点击 {current_color_check_coord1_key}")
-        target_4in2_1_key = current_color_check_coord1_key
-        first_target_4in2_2_key = current_color_check_coord1_key
-        # second_target_4in2_2_key_final is already set
-        target_2in1_key = current_color_check_coord1_key
-        
-    logging.info(f"  最终点击目标键: 4in2_1 使用 '{target_4in2_1_key}', 4in2_2 先点 '{first_target_4in2_2_key}' 再点 '{second_target_4in2_2_key_final}', 2in1 使用 '{target_2in1_key}'")
-    # --- 颜色拾取逻辑结束 ---
-
-    for group_idx_enum, group_num_placeholder in enumerate(groups_to_process): # group_num_placeholder is 1 for mode 7/8
-        if stop_script_event and stop_script_event.is_set(): break
-        
-        current_file_prefix = f"group{group_idx_enum + 1}" if mode == 6 else file_prefix_base
-        
-        if mode == 6: # 完整模式下，点击分组按钮
-            group_click_key = f"group_{group_idx_enum + 1}_click"
-            logging.info(f"\n====== 开始处理C_Arena组别 {group_idx_enum + 1} (前缀: {current_file_prefix}) ======")
-            if not click_coordinates(active_coords_dict[group_click_key], nikke_window):
-                logging.error(f"错误：点击组别 {group_idx_enum + 1} 失败，跳过该组")
-                continue
-            time.sleep(6) # 等待加载
-            if stop_script_event and stop_script_event.is_set(): break
-        else: # 单组或冠军赛模式
-             logging.info(f"\n====== 开始处理C_Arena当前界面 (前缀: {current_file_prefix}) ======")
-
-
-        for match_name in MATCH_NAMES_CARENA:
-            if stop_script_event and stop_script_event.is_set(): break
-            
-            success = process_single_match_carena(
-                nikke_window,
-                mode, # Pass the overall mode (6, 7, or 8)
-                current_file_prefix,
-                match_name,
-                target_4in2_1_key,
-                first_target_4in2_2_key,
-                second_target_4in2_2_key_final, # Pass the key for the "_real_click"
-                target_2in1_key
-            )
-            if success:
-                completed_matches_overall += 1
-                logging.info(f"C_Arena进度: {completed_matches_overall}/{total_matches_overall} ({completed_matches_overall/total_matches_overall:.1%})")
-            else:
-                logging.error(f"处理C_Arena赛事 {current_file_prefix} - {match_name} 时出错或被中断。")
-                if stop_script_event and stop_script_event.is_set():
-                    logging.info(f"C_Arena赛事 {current_file_prefix} - {match_name} 中断。")
-                    break # Break from MATCH_NAMES_CARENA loop
-        # This is the end of the "for match_name in MATCH_NAMES_CARENA:" loop
-
-        if stop_script_event and stop_script_event.is_set(): # Check if inner loop was broken due to stop_script_event
-            logging.info(f"C_Arena组别 {group_idx_enum + 1 if mode == 6 else 'current'} 处理中断。")
-            break # Break from groups_to_process loop
-            
-        if mode == 6: # 完整模式下，每组处理完后
-            logging.info(f"====== 完成处理C_Arena组别 {group_idx_enum + 1} ======")
-        else: # 单组或冠军赛模式完成
-            logging.info(f"====== 完成处理C_Arena当前界面 (模式 {mode}) ======")
-    # This is the end of the "for group_idx_enum..." loop
-
-    if stop_script_event and stop_script_event.is_set():
-        logging.warning("C_Arena模式执行被人为中断。")
-    else:
-        logging.info(f"===== C_Arena模式 {mode} 执行完毕 =====")
-    
-    return not (stop_script_event and stop_script_event.is_set())
-
-# --- Mode 9: Image Processing and Packaging Logic ---
-
-def process_and_save_image_carena(input_path: str, output_dir: str):
-    """
-    将单个图像宽度调整至预设宽度，高度按原始比例计算，然后转换为 WebP 并保存。
-    使用 main.py 中定义的常量。
-    """
-    # Constants TARGET_WIDTH_M9, WEBP_QUALITY_M9, WEBP_METHOD_M9 are global
-    try:
-        logging.info(f"  模式9处理图片: {os.path.basename(input_path)}")
-        img = Image.open(input_path)
-        orig_width, orig_height = img.size
-
-        if orig_width <= 0 or orig_height <= 0:
-            logging.error(f"    错误: 图片 '{os.path.basename(input_path)}' 尺寸无效 ({orig_width}x{orig_height})，跳过。")
-            img.close()
-            return False
-
-        new_processing_width = TARGET_WIDTH_M9
-        if orig_width == 0:
-            logging.error(f"    错误: 图片 '{os.path.basename(input_path)}' 原始宽度为0，无法计算比例，跳过。")
-            img.close()
-            return False
-        
-        new_processing_height = int(round(orig_height * (new_processing_width / orig_width)))
-
-        logging.info(f"    按原始比例缩放至 ({new_processing_width}x{new_processing_height})...")
-        final_img = img.resize((new_processing_width, new_processing_height), Image.Resampling.LANCZOS)
-
-        base_filename = os.path.splitext(os.path.basename(input_path))[0]
-        output_filename = f"{base_filename}.webp"
-        output_path = os.path.join(output_dir, output_filename) # output_dir is WEBP_OUTPUT_DIR
-
-        logging.info(f"    保存为 WebP: {output_path} (Quality: {WEBP_QUALITY_M9}, Method: {WEBP_METHOD_M9})")
-        final_img.save(output_path, 'WEBP', quality=WEBP_QUALITY_M9, method=WEBP_METHOD_M9, lossless=False)
-
-        final_img.close()
-        img.close()
-        return True
-    except FileNotFoundError:
-        logging.error(f"错误：模式9找不到输入文件 '{input_path}'")
-        return False
-    except Exception as e:
-        logging.error(f"错误：模式9处理图片 '{input_path}' 失败: {e}")
-        # import traceback; traceback.print_exc() # Uncomment for debug
-        return False
-
-def create_output_zip_carena(source_dir: str, zip_filename_with_path: str):
-    """
-    将指定目录的内容打包成 ZIP 文件 (仅存储，不压缩)。
-    zip_filename_with_path 是包含路径的完整zip文件名。
-    """
-    if not os.path.isdir(source_dir):
-        logging.error(f"错误：模式9源目录 '{source_dir}' 不存在或不是一个目录，无法打包。")
-        return False
-    try:
-        logging.info(f"\n模式9开始打包目录 '{source_dir}' 到 '{zip_filename_with_path}'...")
-        with zipfile.ZipFile(zip_filename_with_path, 'w', zipfile.ZIP_STORED) as zipf:
-            item_count = 0
-            for root, _, files in os.walk(source_dir):
-                for file in files:
-                    file_path = os.path.join(root, file)
-                    arcname = os.path.relpath(file_path, source_dir)
-                    logging.info(f"  添加: {arcname}")
-                    zipf.write(file_path, arcname=arcname)
-                    item_count += 1
-        logging.info(f"模式9打包完成，共添加 {item_count} 个文件到 {zip_filename_with_path}")
-        return True
-    except Exception as e:
-        logging.error(f"错误：模式9创建 ZIP 文件 '{zip_filename_with_path}' 失败: {e}")
-        # import traceback; traceback.print_exc() # Uncomment for debug
-        if os.path.exists(zip_filename_with_path):
-            try:
-                os.remove(zip_filename_with_path)
-                logging.info(f"已删除不完整的 ZIP 文件: {zip_filename_with_path}")
-            except OSError as remove_err:
-                logging.warning(f"警告：无法删除不完整的 ZIP 文件 '{zip_filename_with_path}': {remove_err}")
-        return False
-
-def run_mode_9_logic():
-    """执行模式 9 的逻辑：处理图片并打包"""
-    global FINAL_OUTPUT_DIR, WEBP_OUTPUT_DIR, ZIP_FILENAME # Use constants from main.py
-    
-    logging.info("\n====== 开始执行模式 9：图片处理与打包 ======")
-    
-    input_dir_m9 = FINAL_OUTPUT_DIR
-    output_dir_m9_webp = WEBP_OUTPUT_DIR
-    zip_file_path_m9 = ZIP_FILENAME # This is just the filename, will be in current dir
-
-    logging.info(f"模式9输入图片目录 (来源): {os.path.abspath(input_dir_m9)}")
-    logging.info(f"模式9输出 WebP 目录: {os.path.abspath(output_dir_m9_webp)}")
-    logging.info(f"模式9最终压缩包名: {zip_file_path_m9}")
-
-    if not os.path.isdir(input_dir_m9):
-        logging.error(f"错误: 模式9输入目录 '{input_dir_m9}' 不存在。请先运行模式 1-8 生成图片。")
-        # Consider using ctypes.windll.user32.MessageBoxW for GUI error if needed
-        return False
-
-    # os.makedirs(output_dir_m9_webp, exist_ok=True) # Already created in main()
-
-    try:
-        image_files = [f for f in os.listdir(input_dir_m9) if f.lower().endswith('.png') and os.path.isfile(os.path.join(input_dir_m9, f))]
-    except Exception as e:
-        logging.error(f"错误: 模式9无法读取输入目录 '{input_dir_m9}': {e}")
-        return False
-
-    if not image_files:
-        logging.warning(f"警告: 模式9输入目录 '{input_dir_m9}' 中没有找到 .png 图片文件。")
-        return False
-
-    logging.info(f"模式9找到 {len(image_files)} 个 .png 文件准备处理...")
-    success_count = 0
-    fail_count = 0
-    start_time = time.time()
-
-    for filename in image_files:
-        if stop_script_event and stop_script_event.is_set():
-            logging.warning("模式9在图片处理中被中断。")
-            return False
-        input_path = os.path.join(input_dir_m9, filename)
-        if process_and_save_image_carena(input_path, output_dir_m9_webp):
-            success_count += 1
-        else:
-            fail_count += 1
-            
-    end_time_process = time.time()
-    logging.info(f"\n模式9图片处理完成。成功: {success_count}, 失败: {fail_count}. 耗时: {end_time_process - start_time:.2f} 秒")
-
-    if success_count == 0 and fail_count > 0 : # Only show error if all failed
-        logging.error("模式9未能成功处理任何图片。")
-        return False
-    if success_count == 0 and fail_count == 0: # No files processed (e.g. list was empty after all)
-        logging.info("模式9没有文件被处理。")
-        return True # Not an error, just nothing to do.
-
-    if stop_script_event and stop_script_event.is_set():
-        logging.warning("模式9在打包前被中断。")
-        return False
-        
-    if create_output_zip_carena(output_dir_m9_webp, zip_file_path_m9):
-        completion_message = (
-            "模式9：图片已标准化并打包。\n\n"
-            f"压缩包 '{zip_file_path_m9}' 已创建在脚本运行目录下。\n\n"
-            "你可以将压缩包名改为\"服务器名_第一组左上角玩家的uid\" ，\n"
-            "如 \"jp_04501689.zip\" （避免和同一大区的玩家重复）\n\n"
-            "再分享到QQ群 437983122 或者其他地方"
-        )
-        logging.info(completion_message)
-        # GUI will handle notifications
-        # try:
-        #     ctypes.windll.user32.MessageBoxW(None, completion_message, "模式 9 完成", 0x40 | 0x1000)
-        # except Exception as e:
-        #     logging.warning(f"显示模式9完成消息框失败: {e}")
-        if gui_logger_callback:
-            gui_logger_callback(completion_message) # Send to GUI log
-        return True
-    else:
-        logging.error(f"错误：模式9打包目录 '{output_dir_m9_webp}' 失败。")
-        return False
     # --- 玩家信息1截图结束 ---
 
     # --- 新增：处理玩家详细信息2和3 ---
@@ -1773,7 +1187,7 @@ def execute_main_logic(): # Renamed from main to avoid conflict if this file is 
             ]
             mode4_generated_files = []
             for i, player_coord_rel in enumerate(mode4_player_coords_rel, 1):
-                if stop_script: break
+                check_stop_signal() # MODIFIED
                 logging.info(f"===== 开始处理模式4 - Player {i} =====")
                 player_stitched_temp_path = process_player(
                     player_coord_rel, TEAM_COORDS_REL, f"m4_p{i}_teams", f"line_m4_p{i}.png",
@@ -1789,12 +1203,12 @@ def execute_main_logic(): # Renamed from main to avoid conflict if this file is 
                     except Exception as e:
                         logging.error(f"复制模式4 - Player {i} 的截图到根目录失败: {e}")
                 else: logging.error(f"处理模式4 - Player {i} 失败。")
-                if i < len(mode4_player_coords_rel) and not stop_script:
+                if i < len(mode4_player_coords_rel): # MODIFIED
                     if click_coordinates(EXIT_COORD_REL, nikke_window): time.sleep(1.0)
                     else: logging.warning(f"模式4 - Player {i} 后未能点击退出坐标。")
                 check_stop_signal()
             
-            if mode4_generated_files and len(mode4_generated_files) == 8 and not stop_script:
+            if mode4_generated_files and len(mode4_generated_files) == 8: # MODIFIED
                 overview_path = stitch_mode4_overview(mode4_generated_files, FINAL_OUTPUT_M4_OVERVIEW)
                 if overview_path:
                     actual_final_output_path = overview_path
@@ -1826,7 +1240,7 @@ def execute_main_logic(): # Renamed from main to avoid conflict if this file is 
             ]
             mode5_generated_files = []
             for i, player_coord_rel in enumerate(mode5_player_coords_rel, 1):
-                if stop_script: break
+                check_stop_signal() # MODIFIED
                 logging.info(f"===== 开始处理模式5 - Player {i} =====")
                 player_stitched_temp_path = process_player(
                     player_coord_rel, TEAM_COORDS_REL, f"m5_p{i}_teams", f"line_m5_p{i}.png",
@@ -1842,12 +1256,12 @@ def execute_main_logic(): # Renamed from main to avoid conflict if this file is 
                     except Exception as e:
                         logging.error(f"复制模式5 - Player {i} 的截图到根目录失败: {e}")
                 else: logging.error(f"处理模式5 - Player {i} 失败。")
-                if i < len(mode5_player_coords_rel) and not stop_script:
+                if i < len(mode5_player_coords_rel): # MODIFIED
                     if click_coordinates(EXIT_COORD_REL, nikke_window): time.sleep(1.0)
                     else: logging.warning(f"模式5 - Player {i} 后未能点击退出坐标。")
                 check_stop_signal()
 
-            if mode5_generated_files and len(mode5_generated_files) == 8 and not stop_script:
+            if mode5_generated_files and len(mode5_generated_files) == 8: # MODIFIED
                 overview_path = stitch_mode4_overview(mode5_generated_files, FINAL_OUTPUT_M5_OVERVIEW) # Reuses mode 4 stitching logic
                 if overview_path:
                     actual_final_output_path = overview_path
@@ -2089,3 +1503,589 @@ if __name__ == "__main__":
         sys.exit(0)
 
     run_selected_mode(selected_cli_mode, local_stop_event, cli_log)
+
+def get_pixel_color_from_rel(relative_coord: tuple, window: pygetwindow.Win32Window):
+    """
+    根据相对坐标和当前窗口客户区，计算实际屏幕坐标并获取该点的像素RGB颜色。
+    相对坐标是 (比例X, 比例Y)，相对于窗口的客户区。
+    """
+    check_stop_signal()
+    if not isinstance(relative_coord, tuple) or len(relative_coord) != 2:
+        logging.error(f"无效的相对坐标格式: {relative_coord}. 需要 (rel_x, rel_y)。")
+        return None
+
+    try:
+        hwnd = window._hWnd
+        if not hwnd:
+            logging.error("错误：无法从 pygetwindow 对象获取窗口句柄 (HWND) for pixel color。")
+            return None
+
+        # 获取客户区矩形（相对于窗口左上角）
+        client_rect_left, client_rect_top, client_rect_right, client_rect_bottom = win32gui.GetClientRect(hwnd)
+        client_width = client_rect_right - client_rect_left
+        client_height = client_rect_bottom - client_rect_top
+
+        if client_width <= 0 or client_height <= 0:
+            logging.error(f"错误：获取到的窗口客户区尺寸无效 (Width={client_width}, Height={client_height}) for pixel color。")
+            return None
+
+        # 将客户区的左上角坐标 (通常是0,0) 转换为屏幕坐标
+        screen_client_origin_x, screen_client_origin_y = win32gui.ClientToScreen(hwnd, (client_rect_left, client_rect_top))
+
+        # 基于客户区计算实际的屏幕坐标
+        screen_x = screen_client_origin_x + round(relative_coord[0] * client_width)
+        screen_y = screen_client_origin_y + round(relative_coord[1] * client_height)
+
+        logging.info(f"相对坐标 {relative_coord} -> 屏幕坐标 ({screen_x}, {screen_y}) for pixel color (基于窗口 '{window.title}' HWND:{hwnd} 客户区尺寸 {client_width}x{client_height} @ ({screen_client_origin_x},{screen_client_origin_y}))")
+        
+        # pyautogui.pixel() 需要绝对屏幕坐标
+        color = pyautogui.pixel(screen_x, screen_y)
+        logging.info(f"颜色拾取成功 at ({screen_x}, {screen_y}): RGB {color}")
+        return color
+
+    except Exception as e:
+        logging.error(f"获取相对坐标 {relative_coord} 的像素颜色时出错: {e}")
+        return None
+    time.sleep(0.5) # 截图后短暂等待
+def cleanup_temp_files_carena(file_prefix: str, match_name: str):
+    """
+    清理指定C_Arena赛事的临时截图文件 (使用传入的文件前缀)。
+    路径基于 main.py 的 TEMP_DIR。
+    """
+    logging.info(f"  清理C_Arena临时文件 for {file_prefix}_{match_name}...")
+    files_to_remove = []
+    # 队伍截图
+    for player_num_suffix in ["player1_click_carena", "player2_click_carena"]: # 使用 main.py 中的坐标键作为参考
+        # 玩家相关的队伍截图 (5个队伍)
+        for team_index in range(1, 6): # team1 to team5
+            files_to_remove.append(os.path.join(TEMP_DIR, f"{file_prefix}_{match_name}_{player_num_suffix}_team{team_index}.png"))
+        
+        # 玩家信息截图 (3个)
+        files_to_remove.append(os.path.join(TEMP_DIR, f"{file_prefix}_{match_name}_{player_num_suffix}_playerinfo.png"))
+        files_to_remove.append(os.path.join(TEMP_DIR, f"{file_prefix}_{match_name}_{player_num_suffix}_player_info_2.png"))
+        files_to_remove.append(os.path.join(TEMP_DIR, f"{file_prefix}_{match_name}_{player_num_suffix}_player_info_3.png"))
+        
+        # 垂直拼接的该玩家的完整图 (包含信息和队伍)
+        files_to_remove.append(os.path.join(TEMP_DIR, f"{file_prefix}_{match_name}_{player_num_suffix}.png"))
+
+    # 赛果截图
+    files_to_remove.append(os.path.join(TEMP_DIR, f"{file_prefix}_{match_name}_result.png"))
+
+    removed_count = 0
+    for file_path in files_to_remove:
+        if os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+                removed_count += 1
+                logging.debug(f"    已删除C_Arena临时文件: {file_path}")
+            except OSError as e:
+                logging.warning(f"    警告：无法删除C_Arena临时文件 {file_path}: {e}")
+    logging.info(f"  C_Arena临时文件清理完成，尝试删除 {len(files_to_remove)} 个文件，实际删除 {removed_count} 个。")
+
+def process_single_match_carena(
+    nikke_window: pygetwindow.Win32Window,
+    current_mode: int, # 6, 7, or 8
+    file_prefix: str,
+    match_name: str,
+    target_for_4in2_1_match_key: str,
+    first_target_for_4in2_2_match_key: str,
+    second_target_for_4in2_2_match_key: str, # This should be the key for the "_real_click"
+    target_for_2in1_match_key: str
+):
+    """
+    处理单个C_Arena赛事的完整流程。
+    使用 main.py 的函数和常量。
+    """
+    # global stop_script # Replaced by stop_script_event
+    
+    logging.info(f"\n--- 开始处理C_Arena赛事 {file_prefix} - {match_name} (模式 {current_mode}) ---")
+    if stop_script_event and stop_script_event.is_set():
+        logging.info(f"C_Arena赛事 {file_prefix} - {match_name} 在开始前被中断。")
+        return False
+
+    # 根据当前模式选择坐标字典
+    active_coords_dict = C_ARENA_MODE67_COORDS_REL if current_mode in [6, 7] else C_ARENA_MODE8_COORDS_REL
+
+    # A-1: 根据比赛类型执行不同的点击操作进入赛果界面
+    logging.info(f"  执行初始点击操作 for {match_name}...")
+    click_success = False
+    
+    actual_match_coord_key_to_click = match_name # Default for 8in4 in mode 6/7
+    if current_mode == 8 and "match_map" in active_coords_dict:
+        actual_match_coord_key_to_click = active_coords_dict["match_map"].get(match_name, match_name)
+        logging.info(f"  模式 8 映射: {match_name} -> {actual_match_coord_key_to_click}")
+
+    if match_name.startswith("8in4"):
+        key_to_use_for_8in4 = actual_match_coord_key_to_click
+        if current_mode != 8: # For mode 6 and 7, add suffix
+            key_to_use_for_8in4 = f"{actual_match_coord_key_to_click}_click"
+        click_success = click_coordinates(active_coords_dict[key_to_use_for_8in4], nikke_window)
+        if click_success: time.sleep(3) # c_arena_reviewer had delay_after=3
+    elif match_name == "4in2_1":
+        click_success = click_coordinates(active_coords_dict[target_for_4in2_1_match_key], nikke_window)
+        if click_success: time.sleep(1.5)
+    elif match_name == "4in2_2":
+        if click_coordinates(active_coords_dict[first_target_for_4in2_2_match_key], nikke_window):
+            time.sleep(1.0)
+            click_success = click_coordinates(active_coords_dict[second_target_for_4in2_2_match_key], nikke_window)
+            if click_success: time.sleep(1.5)
+        else:
+            click_success = False
+    elif match_name == "2in1":
+        click_success = click_coordinates(active_coords_dict[target_for_2in1_match_key], nikke_window)
+        if click_success: time.sleep(1.5)
+    else:
+        logging.error(f"错误：未知的 match_name '{match_name}'，无法执行初始点击。")
+        return False
+
+    if not click_success:
+        logging.error(f"错误：执行 {match_name} 的初始点击操作失败。")
+        return False
+    if stop_script_event and stop_script_event.is_set(): return False
+
+    # A-2: 截图赛果区域
+    result_img_path = os.path.join(TEMP_DIR, f"{file_prefix}_{match_name}_result.png")
+    if not take_screenshot(active_coords_dict["result_region_carena"], nikke_window, result_img_path):
+        logging.error(f"未能截取赛果图 for {match_name}")
+        return False
+    if stop_script_event and stop_script_event.is_set(): return False
+
+    player_stitched_paths = {} 
+    player_info_and_teams_screenshot_paths = {} 
+
+    # 处理两个玩家
+    for player_num_idx, player_key_suffix in enumerate(["player1_click_carena", "player2_click_carena"], 1):
+        if stop_script_event and stop_script_event.is_set(): return False
+        logging.info(f"-- 处理C_Arena玩家 {player_num_idx} ({player_key_suffix}) --")
+        
+        # A-3 / A-7: 点击玩家头像
+        if not click_coordinates(active_coords_dict[player_key_suffix], nikke_window):
+            logging.error(f"未能点击玩家 {player_num_idx} 头像")
+            return False
+        time.sleep(3) # 等待队伍界面加载
+        if stop_script_event and stop_script_event.is_set(): return False
+
+        current_player_screenshots = []
+        
+        # 截图玩家信息区域 1 (使用 main.py 的 PLAYER_INFO_REGION_REL)
+        p_info1_fname = f"{file_prefix}_{match_name}_{player_key_suffix}_playerinfo.png"
+        p_info1_fpath = os.path.join(TEMP_DIR, p_info1_fname)
+        if not take_screenshot(PLAYER_INFO_REGION_REL, nikke_window, p_info1_fpath): return False
+        current_player_screenshots.append(p_info1_fpath)
+        if stop_script_event and stop_script_event.is_set(): return False
+
+        # 点击 player_detailinfo_2, 等待, 截图 player_info_2 (使用 main.py 的 PLAYER_INFO_2_REGION_REL)
+        if not click_coordinates(active_coords_dict["player_detailinfo_2_click_carena"], nikke_window): return False
+        time.sleep(2.5)
+        p_info2_fname = f"{file_prefix}_{match_name}_{player_key_suffix}_player_info_2.png"
+        p_info2_fpath = os.path.join(TEMP_DIR, p_info2_fname)
+        if not take_screenshot(PLAYER_INFO_2_REGION_REL, nikke_window, p_info2_fpath): return False
+        current_player_screenshots.append(p_info2_fpath)
+        if stop_script_event and stop_script_event.is_set(): return False
+        
+        # 点击 player_detailinfo_3, 等待, 截图 player_info_3 (使用 C_ARENA_MODE67_COORDS_REL["player_info_3_region_carena"])
+        if not click_coordinates(active_coords_dict["player_detailinfo_3_click_carena"], nikke_window): return False
+        time.sleep(1.0)
+        p_info3_fname = f"{file_prefix}_{match_name}_{player_key_suffix}_player_info_3.png"
+        p_info3_fpath = os.path.join(TEMP_DIR, p_info3_fname)
+        if not take_screenshot(active_coords_dict["player_info_3_region_carena"], nikke_window, p_info3_fpath): return False
+        current_player_screenshots.append(p_info3_fpath)
+        if stop_script_event and stop_script_event.is_set(): return False
+
+        # 点击 player_detailinfo_close
+        if not click_coordinates(active_coords_dict["player_detailinfo_close_click_carena"], nikke_window): return False
+        time.sleep(0.5)
+        if stop_script_event and stop_script_event.is_set(): return False
+
+        # 循环点击5个队伍并截图 (使用 main.py 的 TEAM_COORDS_REL 和 SCREENSHOT_REGION_REL)
+        for i, team_coord_rel in enumerate(TEAM_COORDS_REL, 1):
+            if stop_script_event and stop_script_event.is_set(): return False
+            if not click_coordinates(team_coord_rel, nikke_window):
+                logging.error(f"未能点击玩家 {player_num_idx} 的队伍 {i}")
+                return False
+            time.sleep(1.5) # 增加队伍切换等待 (原c_arena有此延迟)
+            if stop_script_event and stop_script_event.is_set(): return False
+
+            team_img_fname = f"{file_prefix}_{match_name}_{player_key_suffix}_team{i}.png"
+            team_img_fpath = os.path.join(TEMP_DIR, team_img_fname)
+            if not take_screenshot(SCREENSHOT_REGION_REL, nikke_window, team_img_fpath): 
+                logging.error(f"未能截取玩家 {player_num_idx} 的队伍 {i} 截图")
+                return False
+            current_player_screenshots.append(team_img_fpath)
+            if stop_script_event and stop_script_event.is_set(): return False
+        
+        player_info_and_teams_screenshot_paths[player_num_idx] = current_player_screenshots
+
+        # 垂直拼接玩家信息截图和队伍截图 (共 3+5=8 张)
+        player_stitched_fname = f"{file_prefix}_{match_name}_{player_key_suffix}.png" # Stitched file for this player
+        player_stitched_fpath = os.path.join(TEMP_DIR, player_stitched_fname)
+        
+        if not stitch_images_vertically(current_player_screenshots, player_stitched_fpath):
+            logging.error(f"玩家 {player_num_idx} 的截图垂直拼接失败")
+            player_stitched_paths[player_num_idx] = None
+        else:
+            player_stitched_paths[player_num_idx] = player_stitched_fpath
+        if stop_script_event and stop_script_event.is_set(): return False
+
+        # 点击队伍界面关闭 (使用 main.py 的 EXIT_COORD_REL)
+        if not click_coordinates(EXIT_COORD_REL, nikke_window): 
+            logging.error(f"未能为玩家 {player_num_idx} 点击关闭队伍界面")
+            return False
+        time.sleep(1.0)
+        if stop_script_event and stop_script_event.is_set(): return False
+
+    # A-10: 水平拼接 Player1, Result, Player2
+    final_img_fname = f"{file_prefix}_{match_name}.png"
+    final_img_fpath = os.path.join(FINAL_OUTPUT_DIR, final_img_fname) # Save to new FINAL_OUTPUT_DIR
+
+    player1_stitched_img = player_stitched_paths.get(1)
+    player2_stitched_img = player_stitched_paths.get(2)
+
+    images_to_stitch_horizontally = []
+    if player1_stitched_img and os.path.exists(player1_stitched_img):
+        images_to_stitch_horizontally.append(player1_stitched_img)
+    else:
+        logging.warning(f"玩家1的拼接图丢失 for {match_name}")
+    
+    if os.path.exists(result_img_path):
+        images_to_stitch_horizontally.append(result_img_path)
+    else:
+        logging.warning(f"赛果图丢失 for {match_name}")
+
+    if player2_stitched_img and os.path.exists(player2_stitched_img):
+        images_to_stitch_horizontally.append(player2_stitched_img)
+    else:
+        logging.warning(f"玩家2的拼接图丢失 for {match_name}")
+
+    if len(images_to_stitch_horizontally) == 3:
+        if not stitch_images_horizontally(images_to_stitch_horizontally, final_img_fpath, spacing=0, background_color=(255,255,255)): # c_arena uses white bg, no spacing
+            logging.error(f"最终图像水平拼接失败 for {file_prefix}_{match_name}")
+            # Continue to close result even if stitching fails
+    else:
+        logging.warning(f"缺少用于最终水平拼接的图片 for {file_prefix}_{match_name}。需要3张，实际{len(images_to_stitch_horizontally)}张。跳过拼接。")
+
+    if stop_script_event and stop_script_event.is_set(): return False
+
+    # A-11: 点击赛果界面关闭
+    if not click_coordinates(active_coords_dict["close_result_click_carena"], nikke_window): 
+        logging.error(f"未能点击关闭赛果界面 for {match_name}")
+        return False
+    time.sleep(1.5)
+    if stop_script_event and stop_script_event.is_set(): return False
+
+    # 清理本次赛事的临时文件
+    cleanup_temp_files_carena(file_prefix, match_name)
+
+    logging.info(f"--- 完成处理C_Arena赛事 {file_prefix} - {match_name} ---")
+    return True
+# --- C_Arena Reviewer Mode Logics (Modes 6, 7, 8) ---
+
+MATCH_NAMES_CARENA = ["8in4_1", "8in4_2", "8in4_3", "8in4_4", "4in2_1", "4in2_2", "2in1"] # From c_arena_reviewer
+
+def run_carena_mode_logic(nikke_window: pygetwindow.Win32Window, mode: int):
+    """
+    处理C_Arena截图模式 (模式 6, 7, 8) 的核心逻辑。
+    mode 6: 完整模式 (8个组)
+    mode 7: 单组模式 (当前组)
+    mode 8: 冠军赛模式 (当前界面)
+    """
+    # global stop_script # Replaced by stop_script_event
+    logging.info(f"===== 运行C_Arena模式 {mode} =====")
+
+    active_coords_dict = C_ARENA_MODE67_COORDS_REL if mode in [6, 7] else C_ARENA_MODE8_COORDS_REL
+    
+    groups_to_process = []
+    file_prefix_base = ""
+
+    if mode == 6: # 完整模式
+        logging.info("模式 6: 完整模式 (处理所有8个组)")
+        groups_to_process = range(1, 9) # group_1 to group_8
+        # file_prefix_base will be set inside the loop
+    elif mode == 7: # 单组模式
+        logging.info("模式 7: 单组模式 (仅处理当前组)")
+        groups_to_process = [1] # Placeholder for single run
+        file_prefix_base = "group1_current" # Fixed prefix for current group
+    elif mode == 8: # 冠军赛模式
+        logging.info("模式 8: 冠军赛模式 (处理当前界面)")
+        groups_to_process = [1] # Placeholder for single run
+        file_prefix_base = "champain_current" # Fixed prefix for champion mode
+    else:
+        logging.error(f"未知的C_Arena模式: {mode}")
+        return
+
+    total_matches_overall = len(MATCH_NAMES_CARENA) * len(groups_to_process)
+    completed_matches_overall = 0
+    
+    # --- 确定 4in2 和 2in1 的点击目标 (基于颜色拾取) ---
+    # 这些键名需要与 C_ARENA_MODE67_COORDS_REL 和 C_ARENA_MODE8_COORDS_REL 中的定义对应
+    # For Mode 6/7
+    color_check_coord1_key_m67 = "4in2_1_color_check_coord"
+    color_check_coord2_key_m67 = "4in2_2_color_check_coord"
+    second_target_4in2_2_m67 = "4in2_2_real_click"
+    # For Mode 8
+    color_check_coord1_key_m8 = active_coords_dict.get("color_check_coord1_key", "mode3_4in2_1_color_check_coord")
+    color_check_coord2_key_m8 = active_coords_dict.get("color_check_coord2_key", "mode3_4in2_2_color_check_coord")
+    second_target_4in2_2_m8 = "4in2_2_real_click" # Mode 8 also uses the "_real_click"
+
+    target_4in2_1_key = ""
+    first_target_4in2_2_key = ""
+    second_target_4in2_2_key_final = "" # This will be the "_real_click" key
+    target_2in1_key = ""
+
+    # Select appropriate keys based on mode
+    current_color_check_coord1_key = color_check_coord1_key_m8 if mode == 8 else color_check_coord1_key_m67
+    current_color_check_coord2_key = color_check_coord2_key_m8 if mode == 8 else color_check_coord2_key_m67
+    second_target_4in2_2_key_final = second_target_4in2_2_m8 if mode == 8 else second_target_4in2_2_m67
+
+
+    logging.info(f"  正在确定 4in2 和 2in1 的点击目标 (基于 {current_color_check_coord1_key} 和 {current_color_check_coord2_key})...")
+    color1_rel_coord = active_coords_dict.get(current_color_check_coord1_key)
+    color2_rel_coord = active_coords_dict.get(current_color_check_coord2_key)
+
+    if not color1_rel_coord or not color2_rel_coord:
+        logging.error(f"错误：无法在坐标字典中找到颜色检查点: {current_color_check_coord1_key} 或 {current_color_check_coord2_key}")
+        return
+
+    color1_rgb = get_pixel_color_from_rel(color1_rel_coord, nikke_window)
+    color2_rgb = get_pixel_color_from_rel(color2_rel_coord, nikke_window)
+
+    if color1_rgb and color2_rgb:
+        b1 = color1_rgb[2]
+        b2 = color2_rgb[2]
+        logging.info(f"  颜色比较: {current_color_check_coord1_key} B={b1}, {current_color_check_coord2_key} B={b2}")
+        if b2 > b1:
+            target_2in1_key = current_color_check_coord2_key
+            first_target_4in2_2_key = current_color_check_coord2_key
+            target_4in2_1_key = current_color_check_coord1_key
+            logging.info(f"  判定: {current_color_check_coord2_key} (B={b2}) 的 B 值更大。")
+        else:
+            target_2in1_key = current_color_check_coord1_key
+            first_target_4in2_2_key = current_color_check_coord1_key
+            target_4in2_1_key = current_color_check_coord2_key
+            logging.info(f"  判定: {current_color_check_coord1_key} (B={b1}) 的 B 值更大或相等。")
+    else:
+        logging.warning(f"  警告：无法获取颜色，将使用默认点击目标。4in2_1 点击 {current_color_check_coord1_key}, 4in2_2 先点 {current_color_check_coord1_key} 再点 {second_target_4in2_2_key_final}, 2in1 点击 {current_color_check_coord1_key}")
+        target_4in2_1_key = current_color_check_coord1_key
+        first_target_4in2_2_key = current_color_check_coord1_key
+        # second_target_4in2_2_key_final is already set
+        target_2in1_key = current_color_check_coord1_key
+        
+    logging.info(f"  最终点击目标键: 4in2_1 使用 '{target_4in2_1_key}', 4in2_2 先点 '{first_target_4in2_2_key}' 再点 '{second_target_4in2_2_key_final}', 2in1 使用 '{target_2in1_key}'")
+    # --- 颜色拾取逻辑结束 ---
+
+    for group_idx_enum, group_num_placeholder in enumerate(groups_to_process): # group_num_placeholder is 1 for mode 7/8
+        if stop_script_event and stop_script_event.is_set(): break
+        
+        current_file_prefix = f"group{group_idx_enum + 1}" if mode == 6 else file_prefix_base
+        
+        if mode == 6: # 完整模式下，点击分组按钮
+            group_click_key = f"group_{group_idx_enum + 1}_click"
+            logging.info(f"\n====== 开始处理C_Arena组别 {group_idx_enum + 1} (前缀: {current_file_prefix}) ======")
+            if not click_coordinates(active_coords_dict[group_click_key], nikke_window):
+                logging.error(f"错误：点击组别 {group_idx_enum + 1} 失败，跳过该组")
+                continue
+            time.sleep(6) # 等待加载
+            if stop_script_event and stop_script_event.is_set(): break
+        else: # 单组或冠军赛模式
+             logging.info(f"\n====== 开始处理C_Arena当前界面 (前缀: {current_file_prefix}) ======")
+
+
+        for match_name in MATCH_NAMES_CARENA:
+            if stop_script_event and stop_script_event.is_set(): break
+            
+            success = process_single_match_carena(
+                nikke_window,
+                mode, # Pass the overall mode (6, 7, or 8)
+                current_file_prefix,
+                match_name,
+                target_for_4in2_1_match_key,
+                first_target_for_4in2_2_match_key,
+                second_target_4in2_2_key_final, # Pass the key for the "_real_click"
+                target_2in1_key
+            )
+            if success:
+                completed_matches_overall += 1
+                logging.info(f"C_Arena进度: {completed_matches_overall}/{total_matches_overall} ({completed_matches_overall/total_matches_overall:.1%})")
+            else:
+                logging.error(f"处理C_Arena赛事 {current_file_prefix} - {match_name} 时出错或被中断。")
+                if stop_script_event and stop_script_event.is_set():
+                    logging.info(f"C_Arena赛事 {current_file_prefix} - {match_name} 中断。")
+                    break # Break from MATCH_NAMES_CARENA loop
+        # This is the end of the "for match_name in MATCH_NAMES_CARENA:" loop
+
+        if stop_script_event and stop_script_event.is_set(): # Check if inner loop was broken due to stop_script_event
+            logging.info(f"C_Arena组别 {group_idx_enum + 1 if mode == 6 else 'current'} 处理中断。")
+            break # Break from groups_to_process loop
+            
+        if mode == 6: # 完整模式下，每组处理完后
+            logging.info(f"====== 完成处理C_Arena组别 {group_idx_enum + 1} ======")
+        else: # 单组或冠军赛模式完成
+            logging.info(f"====== 完成处理C_Arena当前界面 (模式 {mode}) ======")
+    # This is the end of the "for group_idx_enum..." loop
+
+    if stop_script_event and stop_script_event.is_set():
+        logging.warning("C_Arena模式执行被人为中断。")
+    else:
+        logging.info(f"===== C_Arena模式 {mode} 执行完毕 =====")
+    
+    return not (stop_script_event and stop_script_event.is_set())
+
+# --- Mode 9: Image Processing and Packaging Logic ---
+
+def process_and_save_image_carena(input_path: str, output_dir: str):
+    """
+    将单个图像宽度调整至预设宽度，高度按原始比例计算，然后转换为 WebP 并保存。
+    使用 main.py 中定义的常量。
+    """
+    # Constants TARGET_WIDTH_M9, WEBP_QUALITY_M9, WEBP_METHOD_M9 are global
+    try:
+        logging.info(f"  模式9处理图片: {os.path.basename(input_path)}")
+        img = Image.open(input_path)
+        orig_width, orig_height = img.size
+
+        if orig_width <= 0 or orig_height <= 0:
+            logging.error(f"    错误: 图片 '{os.path.basename(input_path)}' 尺寸无效 ({orig_width}x{orig_height})，跳过。")
+            img.close()
+            return False
+
+        new_processing_width = TARGET_WIDTH_M9
+        if orig_width == 0:
+            logging.error(f"    错误: 图片 '{os.path.basename(input_path)}' 原始宽度为0，无法计算比例，跳过。")
+            img.close()
+            return False
+        
+        new_processing_height = int(round(orig_height * (new_processing_width / orig_width)))
+
+        logging.info(f"    按原始比例缩放至 ({new_processing_width}x{new_processing_height})...")
+        final_img = img.resize((new_processing_width, new_processing_height), Image.Resampling.LANCZOS)
+
+        base_filename = os.path.splitext(os.path.basename(input_path))[0]
+        output_filename = f"{base_filename}.webp"
+        output_path = os.path.join(output_dir, output_filename) # output_dir is WEBP_OUTPUT_DIR
+
+        logging.info(f"    保存为 WebP: {output_path} (Quality: {WEBP_QUALITY_M9}, Method: {WEBP_METHOD_M9})")
+        final_img.save(output_path, 'WEBP', quality=WEBP_QUALITY_M9, method=WEBP_METHOD_M9, lossless=False)
+
+        final_img.close()
+        img.close()
+        return True
+    except FileNotFoundError:
+        logging.error(f"错误：模式9找不到输入文件 '{input_path}'")
+        return False
+    except Exception as e:
+        logging.error(f"错误：模式9处理图片 '{input_path}' 失败: {e}")
+        # import traceback; traceback.print_exc() # Uncomment for debug
+        return False
+
+def create_output_zip_carena(source_dir: str, zip_filename_with_path: str):
+    """
+    将指定目录的内容打包成 ZIP 文件 (仅存储，不压缩)。
+    zip_filename_with_path 是包含路径的完整zip文件名。
+    """
+    if not os.path.isdir(source_dir):
+        logging.error(f"错误：模式9源目录 '{source_dir}' 不存在或不是一个目录，无法打包。")
+        return False
+    try:
+        logging.info(f"\n模式9开始打包目录 '{source_dir}' 到 '{zip_filename_with_path}'...")
+        with zipfile.ZipFile(zip_filename_with_path, 'w', zipfile.ZIP_STORED) as zipf:
+            item_count = 0
+            for root, _, files in os.walk(source_dir):
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    arcname = os.path.relpath(file_path, source_dir)
+                    logging.info(f"  添加: {arcname}")
+                    zipf.write(file_path, arcname=arcname)
+                    item_count += 1
+        logging.info(f"模式9打包完成，共添加 {item_count} 个文件到 {zip_filename_with_path}")
+        return True
+    except Exception as e:
+        logging.error(f"错误：模式9创建 ZIP 文件 '{zip_filename_with_path}' 失败: {e}")
+        # import traceback; traceback.print_exc() # Uncomment for debug
+        if os.path.exists(zip_filename_with_path):
+            try:
+                os.remove(zip_filename_with_path)
+                logging.info(f"已删除不完整的 ZIP 文件: {zip_filename_with_path}")
+            except OSError as remove_err:
+                logging.warning(f"警告：无法删除不完整的 ZIP 文件 '{zip_filename_with_path}': {remove_err}")
+        return False
+
+def run_mode_9_logic():
+    """执行模式 9 的逻辑：处理图片并打包"""
+    global FINAL_OUTPUT_DIR, WEBP_OUTPUT_DIR, ZIP_FILENAME # Use constants from main.py
+    
+    logging.info("\n====== 开始执行模式 9：图片处理与打包 ======")
+    
+    input_dir_m9 = FINAL_OUTPUT_DIR
+    output_dir_m9_webp = WEBP_OUTPUT_DIR
+    zip_file_path_m9 = ZIP_FILENAME # This is just the filename, will be in current dir
+
+    logging.info(f"模式9输入图片目录 (来源): {os.path.abspath(input_dir_m9)}")
+    logging.info(f"模式9输出 WebP 目录: {os.path.abspath(output_dir_m9_webp)}")
+    logging.info(f"模式9最终压缩包名: {zip_file_path_m9}")
+
+    if not os.path.isdir(input_dir_m9):
+        logging.error(f"错误: 模式9输入目录 '{input_dir_m9}' 不存在。请先运行模式 1-8 生成图片。")
+        # Consider using ctypes.windll.user32.MessageBoxW for GUI error if needed
+        return False
+
+    # os.makedirs(output_dir_m9_webp, exist_ok=True) # Already created in main()
+
+    try:
+        image_files = [f for f in os.listdir(input_dir_m9) if f.lower().endswith('.png') and os.path.isfile(os.path.join(input_dir_m9, f))]
+    except Exception as e:
+        logging.error(f"错误: 模式9无法读取输入目录 '{input_dir_m9}': {e}")
+        return False
+
+    if not image_files:
+        logging.warning(f"警告: 模式9输入目录 '{input_dir_m9}' 中没有找到 .png 图片文件。")
+        return False
+
+    logging.info(f"模式9找到 {len(image_files)} 个 .png 文件准备处理...")
+    success_count = 0
+    fail_count = 0
+    start_time = time.time()
+
+    for filename in image_files:
+        if stop_script_event and stop_script_event.is_set():
+            logging.warning("模式9在图片处理中被中断。")
+            return False
+        input_path = os.path.join(input_dir_m9, filename)
+        if process_and_save_image_carena(input_path, output_dir_m9_webp):
+            success_count += 1
+        else:
+            fail_count += 1
+            
+    end_time_process = time.time()
+    logging.info(f"\n模式9图片处理完成。成功: {success_count}, 失败: {fail_count}. 耗时: {end_time_process - start_time:.2f} 秒")
+
+    if success_count == 0 and fail_count > 0 : # Only show error if all failed
+        logging.error("模式9未能成功处理任何图片。")
+        return False
+    if success_count == 0 and fail_count == 0: # No files processed (e.g. list was empty after all)
+        logging.info("模式9没有文件被处理。")
+        return True # Not an error, just nothing to do.
+
+    if stop_script_event and stop_script_event.is_set():
+        logging.warning("模式9在打包前被中断。")
+        return False
+        
+    if create_output_zip_carena(output_dir_m9_webp, zip_file_path_m9):
+        completion_message = (
+            "模式9：图片已标准化并打包。\n\n"
+            f"压缩包 '{zip_file_path_m9}' 已创建在脚本运行目录下。\n\n"
+            "你可以将压缩包名改为\"服务器名_第一组左上角玩家的uid\" ，\n"
+            "如 \"jp_04501689.zip\" （避免和同一大区的玩家重复）\n\n"
+            "再分享到QQ群 437983122 或者其他地方"
+        )
+        logging.info(completion_message)
+        # GUI will handle notifications
+        # try:
+        #     ctypes.windll.user32.MessageBoxW(None, completion_message, "模式 9 完成", 0x40 | 0x1000)
+        # except Exception as e:
+        #     logging.warning(f"显示模式9完成消息框失败: {e}")
+        if gui_logger_callback:
+            gui_logger_callback(completion_message) # Send to GUI log
+        return True
+    else:
+        logging.error(f"错误：模式9打包目录 '{output_dir_m9_webp}' 失败。")
+        return False
