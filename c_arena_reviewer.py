@@ -133,7 +133,7 @@ scaled_coords = {} # 存储缩放后的 *相对* 坐标
 scaled_regions = {} # 存储缩放后的 *相对* 区域 (x, y, width, height)
 stop_requested = False
 script_running = False
-run_mode = 2 # 1: 完整模式, 2: 单组模式, 3: 冠军赛模式, 9: 打包模式
+run_mode = 7 # 6: 完整模式, 7: 单组模式, 8: 冠军赛模式, 9: 打包模式
 
 # --- 辅助函数 ---
 
@@ -425,12 +425,12 @@ def run_automation():
         return
 
     # 3. 选择当前模式使用的坐标字典
-    if run_mode == 3:
+    if run_mode == 8:
         active_coords = COORDS_4K_MODE3
-        print("使用模式 3 (冠军赛) 坐标系")
-    else: # 模式 1 和 2 使用默认坐标系
+        print("使用模式 8 (冠军赛) 坐标系")
+    else: # 模式 6 和 7 使用默认坐标系
         active_coords = COORDS_4K
-        print("使用模式 1/2 (常规赛) 坐标系")
+        print("使用模式 6/7 (常规赛) 坐标系")
 
     # 4. 预先计算所有缩放后的相对坐标和区域 (使用 active_coords)
     # 清空旧数据
@@ -474,14 +474,14 @@ def run_automation():
 
     # 6. 执行模式选择和主循环
     file_prefix_base = "group" # 默认前缀基础
-    if run_mode == 1: # 完整模式
+    if run_mode == 6: # 完整模式
         print("\n选择模式：完整模式 (处理所有8个组)")
         groups_to_process = range(1, 9)
-    elif run_mode == 2: # 单组模式
+    elif run_mode == 7: # 单组模式
         print("\n选择模式：单组模式 (仅处理当前组，文件名前缀为 group1)")
         groups_to_process = [1] # 只处理一次
         file_prefix_base = "group1" # 固定前缀
-    elif run_mode == 3: # 冠军赛模式
+    elif run_mode == 8: # 冠军赛模式
         print("\n选择模式：冠军赛模式 (处理当前界面，文件名前缀为 champain)")
         groups_to_process = [1] # 只处理一次
         file_prefix_base = "champain" # 固定前缀
@@ -499,18 +499,18 @@ def run_automation():
         if stop_requested: break
 
         # 确定当前循环的文件名前缀
-        if run_mode == 1:
+        if run_mode == 6:
             current_file_prefix = f"group{group_index}"
             print(f"\n====== 开始处理组别 {group_index} (前缀: {current_file_prefix}) ======")
-        else: # 模式 2 或 3
+        else: # 模式 7 或 8
             current_file_prefix = file_prefix_base # 使用固定的 "group1" 或 "champain"
             print(f"\n====== 开始处理当前界面 (前缀: {current_file_prefix}) ======")
 
 
         # --- 为 4in2 和 2in1 确定点击目标 (根据当前模式和取色) ---
         # 确定用于取色的坐标名称
-        color_check_coord1_name = active_coords.get("color_check_1", "4in2_1" if run_mode != 3 else "mode3_4in2_1")
-        color_check_coord2_name = active_coords.get("color_check_2", "4in2_2" if run_mode != 3 else "mode3_4in2_2")
+        color_check_coord1_name = active_coords.get("color_check_1", "4in2_1" if run_mode != 8 else "mode3_4in2_1")
+        color_check_coord2_name = active_coords.get("color_check_2", "4in2_2" if run_mode != 8 else "mode3_4in2_2")
 
         # 修正：始终使用 "4in2_2_real" 作为第二次点击的目标名称
         # 确保 "4in2_2_real" 在 active_coords 中存在
@@ -552,7 +552,7 @@ def run_automation():
 
 
         # 只有在完整模式(模式1)下才点击分组按钮
-        if run_mode == 1:
+        if run_mode == 6:
             group_coord_name = f"group_{group_index}" # 仅模式 1 需要
             if not safe_click(group_coord_name, delay_after=6): # 点击分组按钮，等待加载
                  print(f"错误：点击组别 {group_index} 失败，跳过该组")
@@ -598,7 +598,7 @@ def run_automation():
     print(f"总耗时: {duration:.2f} 秒")
     # 统计 final 目录中符合命名规则的文件数
     # 修改：根据模式判断前缀
-    expected_prefix = "group" if run_mode in [1, 2] else "champain"
+    expected_prefix = "group" if run_mode in [6, 7] else "champain"
     try:
         final_files = [f for f in os.listdir(OUTPUT_DIR) if f.startswith(expected_prefix) and f.endswith(".png")]
         print(f"成功处理并保存的最终图片数量: {len(final_files)}")
@@ -610,7 +610,7 @@ def run_automation():
         print("任务被人为中断。")
 
     # 根据模式调整完成消息
-    mode_desc = {1: "完整模式", 2: "单组模式", 3: "冠军赛模式"}
+    mode_desc = {6: "完整模式", 7: "单组模式", 8: "冠军赛模式"}
     completion_msg = (
         f"脚本执行完毕 (模式: {mode_desc.get(run_mode, '未知')})。\n"
         f"总耗时: {duration:.2f} 秒。\n"
@@ -790,9 +790,9 @@ def process_single_match(file_prefix, match_name,
     click_success = False
     # 获取当前模式下的实际点击坐标名称 (用于 8in4)
     actual_match_coord_name = match_name # 默认使用通用名称
-    if run_mode == 3 and "match_map" in active_coords:
+    if run_mode == 8 and "match_map" in active_coords:
         actual_match_coord_name = active_coords["match_map"].get(match_name, match_name)
-        print(f"  模式 3 映射: {match_name} -> {actual_match_coord_name}")
+        print(f"  模式 8 映射: {match_name} -> {actual_match_coord_name}")
 
     if match_name.startswith("8in4"):
         # 8进4: 点击映射后的坐标名
@@ -1191,21 +1191,21 @@ if __name__ == "__main__":
             # 更新提示信息
             prompt = (
                 "请选择运行模式:\n"
-                " 1: 完整模式 (自动截取8个分组, 前缀 groupX)\n"
-                " 2: 单组模式 (自动截取当前组, 前缀 group1)\n"
-                " 3: 冠军赛模式 (自动截取当前界面, 前缀 champain)\n"
+                " 6: 完整模式 (自动截取8个分组, 前缀 groupX)\n"
+                " 7: 单组模式 (自动截取当前组, 前缀 group1)\n"
+                " 8: 冠军赛模式 (自动截取当前界面, 前缀 champain)\n"
                 " 9: 图片处理和打包 (处理 'final' 目录图片并压缩)\n"
-                "请输入数字 (1, 2, 3 或 9): "
+                "请输入数字 (6, 7, 8 或 9): "
             )
             mode_choice = input(prompt)
             run_mode = int(mode_choice)
             # 更新有效选项
-            if run_mode in [1, 2, 3, 9]:
+            if run_mode in [6, 7, 8, 9]:
                 break
             else:
-                print("输入无效，请输入 1, 2, 3 或 9。")
+                print("输入无效，请输入 6, 7, 8 或 9。")
         except ValueError:
-            print("输入无效，请输入数字 1, 2, 3 或 9。")
+            print("输入无效，请输入数字 6, 7, 8 或 9。")
         except EOFError:
              print("无法获取用户输入，程序退出。")
              sys.exit(1)
@@ -1214,7 +1214,7 @@ if __name__ == "__main__":
              sys.exit(0)
 
     # --- 根据模式执行 ---
-    if run_mode in [1, 2, 3]: # 修改：模式 1, 2, 3 都需要热键监听
+    if run_mode in [6, 7, 8]: # 修改：模式 6, 7, 8 都需要热键监听
         # 模式 1, 2, 3 需要热键监听
         exit_requested_main = False # 用于通过 Ctrl+C 或其他方式退出主循环
         try:
@@ -1224,7 +1224,7 @@ if __name__ == "__main__":
             print("\n--- 加入 NIKKE PVP讨论群 437983122 ---")
             print("\n--- 分享你大区的数据 ---")
             # 更新模式显示
-            mode_text = {1: "完整模式 (分组赛)", 2: "单组模式 (分组赛)", 3: "冠军赛模式"}
+            mode_text = {6: "完整模式 (分组赛)", 7: "单组模式 (分组赛)", 8: "冠军赛模式"}
             print(f"当前模式: {mode_text.get(run_mode, '未知')}")
             print("依赖检查: pywin32 已加载。")
             print(f"目标进程: {PROCESS_NAME}")
@@ -1232,9 +1232,9 @@ if __name__ == "__main__":
             print(" 1. 请确保 NIKKE 游戏已运行并且窗口可见。")
             print("    - 如果全屏模式，需保证你的屏幕为16：9，否则请使用16：9窗口化。")
             # 根据模式调整导航提示
-            if run_mode == 1 or run_mode == 2:
+            if run_mode == 6 or run_mode == 7:
                 print(" 2. 返回游戏，导航到【竞技场】-【新秀竞技场】的【晋级赛】界面（顶部有8个小组可选择）。")
-            elif run_mode == 3:
+            elif run_mode == 8:
                 print(" 2. 返回游戏，导航到【竞技场】-【冠军竞技场】的【锦标赛】界面（显示对阵图）。")
             print(" 3. 按 Ctrl+8 开始运行脚本。")
             print("\n运行期间:")
