@@ -239,7 +239,7 @@ class NikkeGuiApp(ctk.CTk):
                 {
                     "name": "赛前总览用",
                     "description": None,
-                    "ids": [4, 41, 5]
+                    "ids": [41, 4, 5]
                 },
                 {
                     "name": "赛果分析用",
