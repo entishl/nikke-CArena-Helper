@@ -761,14 +761,19 @@ class NikkeGuiApp(ctk.CTk):
 
     def execute_script_thread(self, mode_specific_inputs):
         logger = self.app_context.shared.logger if self.app_context and hasattr(self.app_context, 'shared') else logging.getLogger("ExecuteThreadLogger")
+        status = 'unknown' # 初始化状态
+        final_message_or_error = "脚本执行完毕，但状态未知。" # 默认消息
+
         try:
             # 首先确保窗口已连接
             if not (hasattr(self.app_context.shared, 'nikke_window') and self.app_context.shared.nikke_window):
                 if not self.check_nikke_window_status(from_retry=True): # check_nikke_window_status 内部会尝试连接（但不激活）
                     logger.error("无法执行脚本：NIKKE 窗口未连接。")
-                    self.after(0, self.on_script_finished, "NIKKE 窗口连接失败")
+                    status = 'error'
+                    final_message_or_error = "NIKKE 窗口连接失败"
+                    self.after(0, self.on_script_finished, status, final_message_or_error)
                     return
-            
+
             # 如果不是模式9，则在执行模式前尝试激活窗口
             if self.current_mode_value != 9:
                 logger.info(f"模式 {self.current_mode_value} 即将执行，尝试激活 NIKKE 窗口...")
@@ -789,11 +794,22 @@ class NikkeGuiApp(ctk.CTk):
             logger.info("等待结束，开始执行模式。") # 添加日志
 
             execute_mode(self.app_context, self.current_mode_value, mode_specific_inputs)
-            final_message = getattr(self.app_context.shared, 'final_message', "脚本执行完成。")
-            self.after(0, self.on_script_finished, final_message)
+            status = 'success' # 成功完成
+            final_message_or_error = getattr(self.app_context.shared, 'final_message', "脚本执行完成。")
+
         except Exception as e:
             logger.exception("脚本执行过程中发生错误:")
-            self.after(0, self.on_script_finished, f"脚本执行出错: {str(e)[:100]}")
+            status = 'error' # 执行出错
+            final_message_or_error = f"{str(e)[:100]}" # 记录错误信息
+
+        finally:
+            # 检查是否是用户请求停止
+            if self.app_context and hasattr(self.app_context, 'shared') and self.app_context.shared.stop_requested:
+                status = 'stopped' # 被用户停止
+                final_message_or_error = "脚本已由用户停止。" # 更新消息
+            
+            # 使用 self.after 将状态和消息传递给主线程的 on_script_finished
+            self.after(0, self.on_script_finished, status, final_message_or_error)
 
     def on_server_selected(self, selected_display_name):
         selected_title = self.server_options_map.get(selected_display_name)
@@ -828,11 +844,15 @@ class NikkeGuiApp(ctk.CTk):
         self.status_label.configure(text="正在停止脚本...")
         self.stop_button.configure(state="disabled")
 
-    def on_script_finished(self, message="脚本已结束。"):
+    def on_script_finished(self, status, message="脚本已结束。"):
+        # 更新状态标签（仍然显示原始消息或错误摘要）
         self.status_label.configure(text=message)
         self.start_button.configure(state="normal") # Re-enable start button
         self.stop_button.configure(state="disabled")
         self.script_thread = None
+
+        # 调用新的弹窗方法
+        self._show_completion_popup(status, message)
 
         self.check_nikke_window_status() # Re-check and update UI accordingly
 
@@ -844,6 +864,32 @@ class NikkeGuiApp(ctk.CTk):
             self.log_textbox.grid(row=0, column=0, sticky="nsew") # Ensure log is shown
             self.image_label.configure(image=None, text="图片显示已关闭。\n日志将在此处显示。") # Update text if needed
 
+
+    def _show_completion_popup(self, status, message):
+        """根据脚本执行状态显示不同的弹窗。"""
+        popup_title = "提示"
+        popup_text = ""
+        icon_flag = 0x00000000 # MB_OK
+
+        if status == 'success':
+            popup_text = "任务完成！"
+            icon_flag |= 0x00000040 # MB_ICONINFORMATION
+        elif status == 'error':
+            popup_text = f"脚本执行出错:\n\n{message}"
+            icon_flag |= 0x00000010 # MB_ICONERROR
+        elif status == 'stopped':
+            popup_text = "脚本已由用户停止。"
+            icon_flag |= 0x00000030 # MB_ICONWARNING
+        else: # unknown or other status
+            popup_text = f"脚本执行完毕，但状态未知。\n\n消息: {message}"
+            icon_flag |= 0x00000030 # MB_ICONWARNING
+
+        # 使用 ctypes 显示 Windows 消息框
+        try:
+            ctypes.windll.user32.MessageBoxW(0, popup_text, popup_title, icon_flag)
+        except Exception as e:
+            logger = getattr(getattr(self.app_context, 'shared', None), 'logger', logging.getLogger("PopupLogger"))
+            logger.error(f"显示完成弹窗时出错: {e}")
 
     def on_closing(self):
         logger = self.app_context.shared.logger if self.app_context and hasattr(self.app_context, 'shared') else logging.getLogger("ClosingLogger")

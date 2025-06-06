@@ -767,17 +767,6 @@ def get_or_create_mode_output_subdir(context, mode_identifier, subdir_basename=N
         return None
 
     if subdir_basename:
-        # 如果提供了 subdir_basename，我们通常会将其与模式标识符结合，或者直接使用它
-        # 为保持与审查建议的一致性，这里允许 subdir_basename 直接作为子目录名的一部分
-        # 例如 mode_identifier=1, subdir_basename="predictions" -> "mode1_predictions"
-        # 或者，如果 subdir_basename 已经包含了模式信息，如 "mode1_specific_outputs"，也可以
-        # 为了简单和明确，我们约定 mode_identifier 用于构建一个父级模式目录，subdir_basename 在其下
-        # 或者，如果 subdir_basename 意图是完整的子目录名，则 mode_identifier 仅用于日志/区分
-        
-        # 按照审查建议的例子: core_utils.get_or_create_mode_output_subdir(context, 1, "predictions")
-        # 这暗示最终目录可能是 base_output_dir / "mode1_predictions" 或 base_output_dir / "mode1" / "predictions"
-        # 我们选择更简单的结构: base_output_dir / f"mode{mode_identifier}_{subdir_basename}"
-        # 或者如果 subdir_basename 已经很具体，就直接用它，但加上模式前缀以防冲突
         if str(mode_identifier) not in subdir_basename: # 避免 "mode1_mode1_predictions"
             final_subdir_name = f"mode{mode_identifier}_{subdir_basename}"
         else:
