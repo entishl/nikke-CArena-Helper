@@ -233,14 +233,22 @@ def stitch_images_vertically(context, image_paths: list, output_path: str):
                 pass
         return False
 
-def find_and_activate_window(context, selected_window_title_override: str = None):
+def find_and_activate_window(context, selected_window_title_override: str = None, activate_now: bool = True):
     """
-    查找与 core_constants.TARGET_PROCESS_NAME 关联且窗口标题匹配的窗口，并将其激活。
+    查找与 core_constants.TARGET_PROCESS_NAME 关联且窗口标题匹配的窗口。
+    如果 activate_now 为 True (默认)，则激活找到的窗口。
     优先使用 context.shared.selected_target_window_title (如果非 None)。
     如果 context.shared.selected_target_window_title 为 None (自动选择)，
     或提供了 selected_window_title_override，则按以下顺序确定目标标题：
     1. selected_window_title_override (如果提供)
     2. (如果上述都为 None) 遍历 core_constants.POSSIBLE_TARGET_WINDOW_TITLES 尝试查找。
+
+    参数:
+        context: 应用上下文。
+        selected_window_title_override: 可选的窗口标题覆盖。
+        activate_now: 布尔值，指示是否在找到窗口后立即激活它。默认为 True。
+    返回:
+        pygetwindow.Win32Window 对象如果找到窗口 (且如果 activate_now=True 则已激活)，否则返回 None。
     """
     logger = getattr(context.shared, 'logger', logging)
     target_process_name = core_constants.TARGET_PROCESS_NAME
@@ -292,12 +300,11 @@ def find_and_activate_window(context, selected_window_title_override: str = None
 
     # 遍历所有要尝试的标题
     for title_to_match in titles_to_try:
-        logger.info(f"正在尝试查找进程 '{target_process_name}' 且窗口标题为 '{title_to_match}' 的窗口...")
+        logger.info(f"正在尝试查找进程 '{target_process_name}' 且窗口标题为 '{title_to_match}' 的窗口 (激活: {activate_now})...")
         
         target_hwnd = None
         # 遍历找到的PID，查找与 PID 关联且标题匹配的窗口句柄 (HWND)
         for pid_to_check in found_pids:
-            # logger.debug(f"检查 PID {pid_to_check} 的窗口 (针对标题 '{title_to_match}')...")
             top_windows = []
             try:
                 win32gui.EnumWindows(lambda hwnd, param: param.append(hwnd), top_windows)
@@ -314,55 +321,65 @@ def find_and_activate_window(context, selected_window_title_override: str = None
                             if current_window_title == title_to_match:
                                 logger.info(f"找到匹配窗口: PID={pid}, HWND={hwnd_candidate}, 标题='{current_window_title}'")
                                 target_hwnd = hwnd_candidate
-                                break # 找到完全匹配的窗口
+                                break
                 except Exception:
-                    continue # 忽略无法获取信息的窗口
+                    continue
             if target_hwnd:
-                break # 已找到目标窗口，无需再检查其他PID
+                break
 
-        if target_hwnd: # 如果当前 title_to_match 找到了窗口
-            logger.info(f"将激活窗口 HWND: {target_hwnd} (标题: '{title_to_match}')")
-            try:
-                if win32gui.IsIconic(target_hwnd):
-                    logger.info("窗口已最小化，正在恢复...")
-                    win32gui.ShowWindow(target_hwnd, win32con.SW_RESTORE)
-                    time.sleep(1.0)
-
-                logger.info("正在激活窗口...")
+        if target_hwnd:
+            if activate_now:
+                logger.info(f"将激活窗口 HWND: {target_hwnd} (标题: '{title_to_match}')")
                 try:
-                    win32gui.SetForegroundWindow(target_hwnd)
-                except Exception as e_set_fg: # pywintypes.error 可能发生
-                    logger.warning(f"SetForegroundWindow 失败({e_set_fg})，尝试用 ShowWindow 激活...")
-                    win32gui.ShowWindow(target_hwnd, win32con.SW_SHOW)
-                    time.sleep(0.1)
-                    win32gui.SetForegroundWindow(target_hwnd)
+                    if win32gui.IsIconic(target_hwnd):
+                        logger.info("窗口已最小化，正在恢复...")
+                        win32gui.ShowWindow(target_hwnd, win32con.SW_RESTORE)
+                        time.sleep(1.0)
 
-                time.sleep(0.5)
-                
-                foreground_hwnd = win32gui.GetForegroundWindow()
-                if foreground_hwnd == target_hwnd:
-                    logger.info(f"窗口 HWND {target_hwnd} ('{title_to_match}') 已成功激活并置于前台。")
+                    logger.info("正在激活窗口...")
                     try:
-                        window = pygetwindow.Win32Window(target_hwnd)
-                        return window
-                    except Exception as e_pyget:
-                        logger.warning(f"创建 pygetwindow 对象时出错（但不影响激活）: {e_pyget}")
-                        return None
-                else:
-                    current_fg_title = "未知标题"
-                    try:
-                        current_fg_title = win32gui.GetWindowText(foreground_hwnd)
-                    except: pass
-                    logger.warning(f"尝试激活窗口 HWND {target_hwnd} ('{title_to_match}')，但当前前台窗口是 HWND {foreground_hwnd} ('{current_fg_title}').")
-                    # 继续尝试下一个标题 (如果还有)
-            except Exception as e_activate_main:
-                logger.error(f"激活窗口 HWND {target_hwnd} (标题 '{title_to_match}') 时发生意外错误: {e_activate_main}")
-                # 继续尝试下一个标题 (如果还有)
-        else: # 当前 title_to_match 未找到窗口
+                        win32gui.SetForegroundWindow(target_hwnd)
+                    except Exception as e_set_fg:
+                        logger.warning(f"SetForegroundWindow 失败({e_set_fg})，尝试用 ShowWindow 激活...")
+                        win32gui.ShowWindow(target_hwnd, win32con.SW_SHOW)
+                        time.sleep(0.1)
+                        win32gui.SetForegroundWindow(target_hwnd)
+
+                    time.sleep(0.5)
+                    
+                    foreground_hwnd = win32gui.GetForegroundWindow()
+                    if foreground_hwnd == target_hwnd:
+                        logger.info(f"窗口 HWND {target_hwnd} ('{title_to_match}') 已成功激活并置于前台。")
+                        try:
+                            window = pygetwindow.Win32Window(target_hwnd)
+                            return window
+                        except Exception as e_pyget:
+                            logger.warning(f"创建 pygetwindow 对象时出错（但不影响激活）: {e_pyget}")
+                            # 即使创建 pygetwindow 对象失败，如果激活成功，也应该认为窗口已找到并激活
+                            # 但为了返回一致的类型，这里可能还是返回 None，或者一个标记对象
+                            return None # 或者返回一个特殊的标记表示激活成功但对象创建失败
+                    else:
+                        current_fg_title = "未知标题"
+                        try:
+                            current_fg_title = win32gui.GetWindowText(foreground_hwnd)
+                        except: pass
+                        logger.warning(f"尝试激活窗口 HWND {target_hwnd} ('{title_to_match}')，但当前前台窗口是 HWND {foreground_hwnd} ('{current_fg_title}').")
+                        # 激活失败，继续尝试下一个标题 (如果还有)
+                except Exception as e_activate_main:
+                    logger.error(f"激活窗口 HWND {target_hwnd} (标题 '{title_to_match}') 时发生意外错误: {e_activate_main}")
+                    # 激活失败，继续尝试下一个标题 (如果还有)
+            else: # activate_now is False
+                logger.info(f"找到窗口 HWND: {target_hwnd} (标题: '{title_to_match}')，但不执行激活操作。")
+                try:
+                    window = pygetwindow.Win32Window(target_hwnd)
+                    return window
+                except Exception as e_pyget_no_activate:
+                    logger.error(f"创建 pygetwindow 对象时出错 (未激活模式): {e_pyget_no_activate}")
+                    return None
+        else:
             logger.info(f"未找到标题为 '{title_to_match}' 的窗口。")
 
-    # 如果遍历完所有 titles_to_try 都没有成功激活窗口
-    logger.error(f"错误：尝试了所有指定/可能的标题 ({titles_to_try})，但未能找到并激活 '{target_process_name}' 的窗口。")
+    logger.error(f"错误：尝试了所有指定/可能的标题 ({titles_to_try})，但未能找到 '{target_process_name}' 的窗口 (激活状态: {activate_now})。")
     return None
 
 def process_image_to_webp(context, input_image_path: str, output_webp_dir: str, quality: int = 85, lossless: bool = False):
@@ -845,3 +862,60 @@ def get_timestamp_for_filename():
     return time.strftime("%Y%m%d_%H%M%S")
 if __name__ == '__main__':
     print("core/utils.py 被直接运行 (通常作为模块导入)")
+
+def activate_nikke_window_if_needed(context):
+    """
+    如果 context.shared.nikke_window 存在且未激活，则尝试激活它。
+    """
+    logger = getattr(context.shared, 'logger', logging)
+    nikke_window_obj = getattr(context.shared, 'nikke_window', None)
+
+    if not nikke_window_obj:
+        logger.info("activate_nikke_window_if_needed: NIKKE 窗口对象不存在于上下文中，无法激活。")
+        return False
+
+    try:
+        target_hwnd = nikke_window_obj._hWnd
+        if not target_hwnd:
+            logger.error("activate_nikke_window_if_needed: 无法从 NIKKE 窗口对象获取 HWND。")
+            return False
+
+        foreground_hwnd = win32gui.GetForegroundWindow()
+        if foreground_hwnd == target_hwnd:
+            logger.info(f"activate_nikke_window_if_needed: NIKKE 窗口 (HWND {target_hwnd}) 已是前台窗口。")
+            return True
+
+        logger.info(f"activate_nikke_window_if_needed: 正在尝试激活 NIKKE 窗口 (HWND {target_hwnd}, Title: '{nikke_window_obj.title}')...")
+        if win32gui.IsIconic(target_hwnd):
+            logger.info("窗口已最小化，正在恢复...")
+            win32gui.ShowWindow(target_hwnd, win32con.SW_RESTORE)
+            time.sleep(1.0) # 等待窗口恢复
+
+        try:
+            win32gui.SetForegroundWindow(target_hwnd)
+        except Exception as e_set_fg: # pywintypes.error 可能发生
+            logger.warning(f"SetForegroundWindow 失败({e_set_fg})，尝试用 ShowWindow 激活...")
+            win32gui.ShowWindow(target_hwnd, win32con.SW_SHOW) # 尝试另一种方式显示
+            time.sleep(0.1) # 短暂等待
+            win32gui.SetForegroundWindow(target_hwnd) # 再次尝试置顶
+
+        time.sleep(0.5) # 等待激活操作生效
+
+        final_foreground_hwnd = win32gui.GetForegroundWindow()
+        if final_foreground_hwnd == target_hwnd:
+            logger.info(f"NIKKE 窗口 (HWND {target_hwnd}) 已成功激活。")
+            return True
+        else:
+            current_fg_title = "未知标题"
+            try:
+                current_fg_title = win32gui.GetWindowText(final_foreground_hwnd)
+            except: pass
+            logger.warning(f"尝试激活 NIKKE 窗口 (HWND {target_hwnd}) 后，当前前台窗口仍为 HWND {final_foreground_hwnd} ('{current_fg_title}')。")
+            return False
+            
+    except AttributeError:
+        logger.error("activate_nikke_window_if_needed: NIKKE 窗口对象无效或没有 _hWnd 属性。")
+        return False
+    except Exception as e:
+        logger.error(f"activate_nikke_window_if_needed: 激活 NIKKE 窗口时发生错误: {e}")
+        return False

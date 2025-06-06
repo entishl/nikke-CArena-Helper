@@ -89,14 +89,14 @@
     },
     {
       "id": 4,
-      "name": "模式4: 晋级赛 8人阵容",
+      "name": "晋级赛8人阵容",
       "desc": "处理64进8阶段的截图。",
       "enabled": true,
       "asset_image": "4.png"
     },
     {
       "id": 5,
-      "name": "模式5: 冠军八强阵容",
+      "name": "冠军赛8强阵容一览",
       "desc": "处理冠军争霸赛阶段的预测截图。",
       "enabled": true,
       "asset_image": "5.png"
@@ -134,7 +134,7 @@
       "name": "小组赛模式",
       "desc": "截图小组赛中小组内四名玩家的阵容和数据，并水平拼接。",
       "enabled": true,
-      "asset_image": "assets/mode41_icon.png"
+      "asset_image": "41.png"
     }
   ]
 }

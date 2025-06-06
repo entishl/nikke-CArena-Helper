@@ -335,14 +335,14 @@ def setup_app_environment(context: AppContext):
         # GUI 版本需要能获取这个状态
         return False # 表示环境设置失败
 
-    logger.info(f"Attempting to find and activate '{NIKKE_PROCESS_NAME}' window...")
+    logger.info(f"Attempting to find NIKKE window (activation deferred)...") # 修改日志
     # 修改调用以匹配新的 find_and_activate_window 签名
-    nikke_window = core_utils.find_and_activate_window(context)
+    nikke_window = core_utils.find_and_activate_window(context, activate_now=False) # 修改调用
     if nikke_window:
         context.shared.nikke_window = nikke_window
-        logger.info(f"Successfully obtained NIKKE window: {nikke_window.title}")
+        logger.info(f"Successfully found NIKKE window: {nikke_window.title} (activation deferred)") # 修改日志
     else:
-        logger.error(f"Failed to find or activate '{NIKKE_PROCESS_NAME}' window. Ensure the game is running and visible.")
+        logger.error(f"Failed to find NIKKE window. Ensure the game is running.") # 修改日志
         # GUI 需要知道这个结果
         return False # 表示窗口未找到
 

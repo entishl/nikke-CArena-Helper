@@ -1,6 +1,7 @@
 import customtkinter as ctk
 from customtkinter import filedialog #  GUI适配：为模式9导入目录选择对话框
 import threading
+import time
 import logging
 from PIL import Image, ImageTk # Import ImageTk
 import os # For path joining
@@ -36,7 +37,7 @@ try:
         AppContext, # AppContext moved here
         # stop_script_callback # This might be handled differently or passed
     )
-    from core.utils import get_asset_path # AppContext removed from here
+    from core.utils import get_asset_path, activate_nikke_window_if_needed # AppContext removed from here, activate_nikke_window_if_needed added
     # APP_TITLE will be loaded from app_context.shared.app_config or a default if not found
     # MODE_CONFIGS will be replaced by app_context.shared.available_modes
     from core.constants import APP_TITLE # APP_TITLE can still be a fallback or defined here if not in config
@@ -761,11 +762,31 @@ class NikkeGuiApp(ctk.CTk):
     def execute_script_thread(self, mode_specific_inputs):
         logger = self.app_context.shared.logger if self.app_context and hasattr(self.app_context, 'shared') else logging.getLogger("ExecuteThreadLogger")
         try:
+            # 首先确保窗口已连接
             if not (hasattr(self.app_context.shared, 'nikke_window') and self.app_context.shared.nikke_window):
-                if not self.check_nikke_window_status(from_retry=True):
+                if not self.check_nikke_window_status(from_retry=True): # check_nikke_window_status 内部会尝试连接（但不激活）
                     logger.error("无法执行脚本：NIKKE 窗口未连接。")
                     self.after(0, self.on_script_finished, "NIKKE 窗口连接失败")
                     return
+            
+            # 如果不是模式9，则在执行模式前尝试激活窗口
+            if self.current_mode_value != 9:
+                logger.info(f"模式 {self.current_mode_value} 即将执行，尝试激活 NIKKE 窗口...")
+                if hasattr(self.app_context, 'shared') and self.app_context.shared.nikke_window:
+                    # 确保 activate_nikke_window_if_needed 已导入并可直接调用
+                    if 'activate_nikke_window_if_needed' in globals() or 'activate_nikke_window_if_needed' in locals():
+                        if activate_nikke_window_if_needed(self.app_context): # 直接调用导入的函数
+                            logger.info("NIKKE 窗口已成功激活或已处于前台。")
+                        else:
+                            logger.warning("尝试激活 NIKKE 窗口失败或窗口未处于前台。脚本仍将继续执行。")
+                    else:
+                        logger.error("activate_nikke_window_if_needed 函数未正确导入或不可用。")
+                else:
+                    logger.warning("无法激活窗口：app_context.shared.nikke_window 不存在。")
+
+            logger.info(f"准备执行模式 {self.current_mode_value}，等待 5 秒...") # 添加日志
+            time.sleep(5) # 添加等待
+            logger.info("等待结束，开始执行模式。") # 添加日志
 
             execute_mode(self.app_context, self.current_mode_value, mode_specific_inputs)
             final_message = getattr(self.app_context.shared, 'final_message', "脚本执行完成。")
