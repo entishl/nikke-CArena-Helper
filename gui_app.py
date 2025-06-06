@@ -239,7 +239,7 @@ class NikkeGuiApp(ctk.CTk):
                 {
                     "name": "赛前总览用",
                     "description": None,
-                    "ids": [4, 5]
+                    "ids": [4, 41, 5]
                 },
                 {
                     "name": "赛果分析用",
@@ -457,24 +457,26 @@ class NikkeGuiApp(ctk.CTk):
         self.image_label.grid(row=0, column=0, sticky="nsew")
 
         try:
+            logger = getattr(getattr(self.app_context, 'shared', None), 'logger', None)
+            if not logger:
+                logger = logging.getLogger("GuiAppImageResize")
+                if not logger.hasHandlers():
+                    ch_resize = logging.StreamHandler()
+                    ch_resize.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s'))
+                    logger.addHandler(ch_resize)
+                    logger.setLevel(logging.DEBUG)
+
+            log_prefix = "_resize_and_display_image"
+            if event: # Log if called from an event like <Configure>
+                log_prefix += f" (event {event.type})"
+
             image_path = get_asset_path(self.current_asset_image_name)
             if os.path.exists(image_path):
                 self.display_area.update_idletasks() # Ensure dimensions are current
                 width = self.display_area.winfo_width()
                 height = self.display_area.winfo_height()
 
-                logger = getattr(getattr(self.app_context, 'shared', None), 'logger', None)
-                if not logger:
-                    logger = logging.getLogger("GuiAppImageResize")
-                    if not logger.hasHandlers():
-                        ch_resize = logging.StreamHandler()
-                        ch_resize.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s'))
-                        logger.addHandler(ch_resize)
-                        logger.setLevel(logging.DEBUG)
                 
-                log_prefix = "_resize_and_display_image"
-                if event: # Log if called from an event like <Configure>
-                    log_prefix += f" (event {event.type})"
                 logger.debug(f"{log_prefix}: display_area current dimensions: width={width}, height={height}")
 
                 padding = 20

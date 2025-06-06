@@ -840,5 +840,8 @@ def generate_unique_filepath(output_dir: str, base_filename: str, logger_obj=Non
             logger.error(f"尝试为 '{base_filename}' 生成唯一文件名失败次数过多。最后尝试: '{new_filepath}'。")
             return new_filepath # 或者抛出异常
 
+def get_timestamp_for_filename():
+    """返回当前时间的 YYYYMMDD_HHMMSS 格式字符串，用于文件名。"""
+    return time.strftime("%Y%m%d_%H%M%S")
 if __name__ == '__main__':
     print("core/utils.py 被直接运行 (通常作为模块导入)")

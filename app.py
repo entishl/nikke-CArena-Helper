@@ -130,6 +130,10 @@ class ModeSpecificConfig:
         self.m9_actual_output_webp_dir = None
         self.m9_actual_zip_filepath = None
 
+    def _load_mode41_config(self, mode_defaults):
+        self.m41_output_suffix = mode_defaults.get('output_filename_suffix', '_group_stage_match')
+        self.m41_player_temp_prefix = mode_defaults.get('player_temp_prefix', 'gs_player')
+
     def __init__(self, mode_number=None, app_config=None):
         # 通用配置项
         gs_defaults = app_config.get('global_settings', {}) if app_config else {}
@@ -149,6 +153,7 @@ class ModeSpecificConfig:
             7: self._load_mode7_config,
             8: self._load_mode8_config,
             9: self._load_mode9_config,
+            41: self._load_mode41_config, # 新增
         }
 
         if mode_number and app_config:
@@ -594,20 +599,21 @@ def main():
             print("  7: Reviewer 单组分组赛")
             print("  8: Reviewer 冠军赛截图")
             print("  9: 图片处理与打包")
+            print("  41: 小组赛模式") # 新增
             print("  0: 退出程序")
             print("="*30)
-
+    
             try:
-                choice = input("请输入模式编号 (0-9): ").strip()
+                choice = input("请输入模式编号 (0-9, 41): ").strip() # 更新提示
                 if not choice: continue
-
+    
                 selected_mode_num = int(choice)
-
+    
                 if selected_mode_num == 0:
                     context.shared.logger.info("用户选择退出程序。")
                     break # 退出模式选择循环
-
-                if 1 <= selected_mode_num <= 9:
+    
+                if 1 <= selected_mode_num <= 9 or selected_mode_num == 41: # 更新条件
                     context.shared.logger.info(f"用户选择了模式 {selected_mode_num}。")
                     # 对于命令行版本，mode_specific_inputs 通常为 None 或空字典，
                     # execute_mode 内部会处理 input() 获取。
@@ -621,7 +627,7 @@ def main():
                         # continue 会回到主循环顶部，再次检查全局 stop_requested
                         continue
                 else:
-                    context.shared.logger.warning(f"无效的模式编号: {selected_mode_num}。请输入0-9之间的数字。")
+                    context.shared.logger.warning(f"无效的模式编号: {selected_mode_num}。请输入0-9或41之间的数字。") # 更新提示
 
             except ValueError:
                 context.shared.logger.warning("输入无效，请输入数字。")

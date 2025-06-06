@@ -31,6 +31,10 @@
       "overview_layout_cols": 4,
       "save_individual_images": false
     },
+      "mode41": {
+      "output_filename_suffix": "_group_stage_match",
+      "player_temp_prefix": "gs_player"
+    },
     "mode5": {
       "output_filename_suffix": "_championship_pred",
       "num_players": 8,
@@ -124,6 +128,13 @@
       "desc": "将指定目录的图片转换为WebP并打包。",
       "enabled": true,
       "asset_image": "9.png"
+    },
+    {
+      "id": 41,
+      "name": "小组赛模式",
+      "desc": "截图小组赛中小组内四名玩家的阵容和数据，并水平拼接。",
+      "enabled": true,
+      "asset_image": "assets/mode41_icon.png"
     }
   ]
 }
