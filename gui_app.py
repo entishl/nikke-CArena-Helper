@@ -562,7 +562,63 @@ class NikkeGuiApp(ctk.CTk):
     def check_nikke_window_status(self, from_retry=False):
         if not self.nikke_window_status_label: return False # Widget not ready
 
+        # Helper function for aspect ratio check to avoid code duplication
+        def _check_and_warn_aspect_ratio(window_obj):
+            if not window_obj: return
+            try:
+                # Attempt to get HWND, common attribute name is _hWnd
+                hwnd = getattr(window_obj, '_hWnd', None)
+                if not hwnd:
+                    # Fallback to full window size if HWND is not available
+                    width = window_obj.width
+                    height = window_obj.height
+                    logger = getattr(getattr(self.app_context, 'shared', None), 'logger', None)
+                    if logger:
+                        logger.warning("无法获取窗口句柄 (HWND)，将使用完整窗口尺寸进行宽高比检查。")
+                else:
+                    rect = ctypes.wintypes.RECT()
+                    if ctypes.windll.user32.GetClientRect(hwnd, ctypes.byref(rect)):
+                        width = rect.right - rect.left
+                        height = rect.bottom - rect.top
+                    else:
+                        # Fallback if GetClientRect fails
+                        width = window_obj.width
+                        height = window_obj.height
+                        logger = getattr(getattr(self.app_context, 'shared', None), 'logger', None)
+                        if logger:
+                            logger.warning("GetClientRect 调用失败，将使用完整窗口尺寸进行宽高比检查。")
+
+                # Ensure logger exists for warnings/errors during this check
+                logger = None
+                if hasattr(self.app_context, 'shared') and hasattr(self.app_context.shared, 'logger'):
+                    logger = self.app_context.shared.logger
+                
+                if height == 0:
+                    if logger:
+                        logger.warning("NIKKE 窗口高度为0，无法检查宽高比。")
+                    return # Cannot check ratio if height is zero
+
+                target_ratio = 16.0 / 9.0
+                current_ratio = float(width) / height
+                
+                # Allow up to ~2% deviation from 16:9. You can adjust this tolerance.
+                if abs(current_ratio - target_ratio) > 0.02:
+                    ctypes.windll.user32.MessageBoxW(
+                        0, # hwndOwner (0 for no owner window)
+                        "当前 NIKKE 窗口非 16:9，截图可能错误。", # lpText
+                        "窗口比例提示", # lpCaption
+                        0x00000030 | 0x00000000  # uType: MB_ICONWARNING | MB_OK
+                    )
+            except AttributeError:
+                if logger:
+                    logger.warning("无法获取 NIKKE 窗口的 width/height 属性来检查宽高比。窗口对象可能不是预期的类型。")
+            except Exception as e_ratio_check:
+                if logger:
+                    logger.error(f"检查 NIKKE 窗口宽高比时发生内部错误: {e_ratio_check}")
+
+        # If already connected and not a retry, just confirm status and check ratio
         if not from_retry and self.app_context and hasattr(self.app_context, 'shared') and self.app_context.shared.nikke_window:
+            _check_and_warn_aspect_ratio(self.app_context.shared.nikke_window) # Check ratio
             self.nikke_window_status_label.configure(text="NIKKE 窗口: 已连接", text_color="green")
             self.retry_nikke_button.pack_forget()
             if self.start_button: self.start_button.configure(state="normal")
@@ -570,11 +626,19 @@ class NikkeGuiApp(ctk.CTk):
 
         if self.app_context:
             try:
+                current_logger = None
+                if hasattr(self.app_context, 'shared') and hasattr(self.app_context.shared, 'logger'):
+                    current_logger = self.app_context.shared.logger
+
                 if from_retry:
-                    self.app_context.shared.logger.info("尝试重新连接 NIKKE 窗口...")
+                    if current_logger:
+                        current_logger.info("尝试重新连接 NIKKE 窗口...")
+                    else: # Fallback print if logger is not available
+                        print("尝试重新连接 NIKKE 窗口...")
                     setup_app_environment(self.app_context) # Re-run to find window
 
                 if hasattr(self.app_context.shared, 'nikke_window') and self.app_context.shared.nikke_window:
+                    _check_and_warn_aspect_ratio(self.app_context.shared.nikke_window) # Check ratio
                     self.nikke_window_status_label.configure(text="NIKKE 窗口: 已连接", text_color="green")
                     self.retry_nikke_button.pack_forget()
                     if self.start_button: self.start_button.configure(state="normal")
@@ -586,7 +650,14 @@ class NikkeGuiApp(ctk.CTk):
                     return False
             except Exception as e:
                 self.nikke_window_status_label.configure(text=f"NIKKE 窗口: 连接出错", text_color="red")
-                if self.app_context.shared.logger: self.app_context.shared.logger.error(f"Error checking NIKKE window: {e}")
+                logger_for_error = None
+                if hasattr(self.app_context, 'shared') and hasattr(self.app_context.shared, 'logger'):
+                     logger_for_error = self.app_context.shared.logger
+                
+                if logger_for_error:
+                    logger_for_error.error(f"Error checking NIKKE window: {e}")
+                else: # Fallback print
+                    print(f"Error checking NIKKE window: {e}")
                 self.retry_nikke_button.pack(pady=(5,0), fill="x")
                 if self.start_button: self.start_button.configure(state="disabled")
                 return False
