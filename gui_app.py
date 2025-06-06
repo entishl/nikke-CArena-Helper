@@ -289,9 +289,9 @@ class NikkeGuiApp(ctk.CTk):
                         # 例如，对于 ID_CHECK_RESULT，如果配置正确，其 name 应为 "（赛果）查看赛果"
                         btn_text = mode_meta.get('name', f"模式 {mode_id}")
                         
-                        btn = ctk.CTkButton(self.sidebar_frame, text=btn_text)
+                        btn = ctk.CTkButton(self.sidebar_frame, text=btn_text, height=25, font=ctk.CTkFont(size=12))
                         
-                        btn.grid(row=current_row, column=0, padx=20, pady=5, sticky="ew")
+                        btn.grid(row=current_row, column=0, padx=20, pady=3, sticky="ew")
                         self.mode_buttons[mode_id] = btn
                         btn.configure(command=lambda m_id=mode_id: self.select_mode(m_id, self.mode_buttons.get(m_id)))
                         current_row += 1

@@ -203,37 +203,80 @@ class ModeSpecificConfig:
             
         return success
 
+import sys # 确保 sys 已导入
+import os  # 确保 os 已导入
+
+def get_base_path():
+   """ 获取应用程序的基础路径，用于查找资源文件。"""
+   if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+       # PyInstaller one-file bundle in temporary _MEIPASS directory
+       # For data files placed next to the executable (like in one-dir),
+       # we need the directory of the executable itself.
+       return os.path.dirname(sys.executable)
+   elif getattr(sys, 'frozen', False):
+       # PyInstaller one-dir bundle or other frozen environment
+       return os.path.dirname(sys.executable)
+   else:
+       # Running as a standard Python script
+       return os.path.dirname(os.path.abspath(__file__))
+
 def load_app_config(logger):
-    config_filepath = "config.json"
-    default_config = { # 硬编码的后备默认值
-        "global_settings": {"default_output_filename_prefix": "FallbackNCA"},
-        "mode_specific_defaults": {}
-    }
-    try:
-        if os.path.exists(config_filepath):
-            with open(config_filepath, 'r', encoding='utf-8') as f:
-                config_data = json.load(f)
-                logger.info(f"成功从 '{config_filepath}' 加载应用配置。")
-                return config_data
-        else:
-            logger.warning(f"配置文件 '{config_filepath}' 未找到。")
-            try:
-                with open(config_filepath, 'w', encoding='utf-8') as f:
-                    json.dump(default_config, f, indent=2, ensure_ascii=False)
-                logger.info(f"已在 '{os.path.abspath(config_filepath)}' 创建默认配置文件。建议查看并根据需要修改。")
-                # 即使创建成功，第一次运行时也返回 default_config，
-                # 或者可以选择再次读取刚创建的文件 (return load_app_config(logger))
-                # 为简单起见，此处返回内存中的默认配置，下次启动时将加载文件。
-                return default_config
-            except Exception as e_create:
-                logger.error(f"创建默认配置文件 '{config_filepath}' 失败: {e_create}。将使用内部硬编码的默认配置。")
-                return default_config
-    except json.JSONDecodeError:
-        logger.error(f"解析配置文件 '{config_filepath}' 失败。请检查JSON格式。将使用内部默认配置。")
-        return default_config
-    except Exception as e:
-        logger.error(f"加载配置文件时发生错误: {e}。将使用内部默认配置。")
-        return default_config
+   """
+   加载应用程序配置。
+   - 确定 config.json 的路径 (考虑打包环境)。
+   - 尝试读取和解析 JSON。
+   - 处理文件未找到、JSON 格式错误或其他异常。
+   - 如果失败，记录详细错误并返回默认配置。
+   """
+   base_path = get_base_path()
+   config_filepath = os.path.join(base_path, "config.json")
+   logger.info(f"Attempting to load config from: {config_filepath}")
+   try:
+       logger.info(f"Listing contents of base_path ('{base_path}'): {os.listdir(base_path)}")
+   except Exception as e_list:
+       logger.warning(f"Could not list contents of base_path ('{base_path}'): {e_list}")
+
+   default_config = { # Hardcoded fallback defaults
+       "global_settings": {
+           "default_output_filename_prefix": "FallbackNCA",
+           "default_temp_file_prefix": "temp_",
+           "default_delete_temp_files_after_run": True,
+           "default_image_spacing": 20,
+           "default_stitch_background_color": "0,0,0",
+           "log_to_file": False,
+           "log_filename": "app_log.log"
+       },
+       "mode_specific_defaults": {},
+       "modes_meta": [] # Ensure default has an empty modes list
+   }
+
+   try:
+       if os.path.exists(config_filepath):
+           with open(config_filepath, 'r', encoding='utf-8') as f:
+               config_data = json.load(f)
+               logger.info(f"Successfully loaded app config from '{config_filepath}'.")
+               # Basic validation: check if modes_meta exists and is a list
+               if 'modes_meta' not in config_data or not isinstance(config_data.get('modes_meta'), list):
+                   logger.warning(f"Config file '{config_filepath}' is missing 'modes_meta' list or it's not a list. Using default empty list.")
+                   config_data['modes_meta'] = [] # Ensure it exists as an empty list if invalid/missing
+               return config_data
+       else:
+           logger.warning(f"Config file '{config_filepath}' not found.")
+           try:
+               with open(config_filepath, 'w', encoding='utf-8') as f:
+                   json.dump(default_config, f, indent=2, ensure_ascii=False)
+               logger.info(f"Created default config file at '{os.path.abspath(config_filepath)}'. Please review and modify if needed.")
+               # Return the default config for this first run after creation
+               return default_config
+           except Exception as e_create:
+               logger.error(f"Failed to create default config file '{config_filepath}': {e_create}. Using internal hardcoded defaults.")
+               return default_config
+   except json.JSONDecodeError as json_err:
+       logger.error(f"Failed to parse config file '{config_filepath}'. Check JSON format. Error: {json_err}. Using internal defaults.")
+       return default_config
+   except Exception as e:
+       logger.exception(f"Unexpected error loading or processing config file '{config_filepath}'. Using internal defaults. Error details:")
+       return default_config
 
 class AppContext:
     def __init__(self, mode_number=None, app_config_data=None): # mode_number 和 app_config_data 用于初始化 ModeSpecificConfig
