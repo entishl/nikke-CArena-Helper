@@ -4,6 +4,8 @@
 
 **下载地址:** [点此下载最新版本](https://github.com/entishl/nikke-CAranea-Helper/releases)
 
+# 下面没啥好看的
+
 ## ✨ 主要功能
 
 *   **多种操作模式**: 针对不同游戏场景和需求，提供精细化的操作模式。
