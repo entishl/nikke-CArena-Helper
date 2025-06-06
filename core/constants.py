@@ -237,12 +237,11 @@ R_CLOSE_TEAMVIEW_REL = _to_rel_coord((2370, 681))
 R_TEAM_SCREENSHOT_REGION_REL = _to_rel_region((1433, 1134, 2417, 1530))
 
 # Reviewer 中的玩家信息面板配置 (与 Predition 结构类似，但坐标不同)
-# 注意: reviewer 的 player_detailinfo_3 Y坐标 (1990) 较大，需确认
 R_PLAYER_INFO_CONFIG_SEQ = [
     {'type': 'screenshot', 'name': 'info_panel_1', 'region_rel': _to_rel_region((1433, 768, 2417, 963)), 'delay_after': 0.5},
     {'type': 'click', 'name': 'click_detail_info_2', 'coord_rel': _to_rel_coord((1560, 888)), 'delay_after': 2.5},
     {'type': 'screenshot', 'name': 'info_panel_2', 'region_rel': _to_rel_region((1433, 1344, 2417, 1529)), 'delay_after': 0.5},
-    {'type': 'click', 'name': 'click_detail_info_3', 'coord_rel': _to_rel_coord((2200, 1990)), 'delay_after': 1.0}, # Y=1990
+    {'type': 'click', 'name': 'click_detail_info_3', 'coord_rel': _to_rel_coord((2200, 1990)), 'delay_after': 1.0},
     {'type': 'screenshot', 'name': 'info_panel_3', 'region_rel': _to_rel_region((1433, 1768, 2417, 1842)), 'delay_after': 0.5},
     {'type': 'click', 'name': 'click_close_detail_info', 'coord_rel': _to_rel_coord((2418, 202)), 'delay_after': 0.5}
 ]
