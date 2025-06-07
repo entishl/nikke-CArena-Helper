@@ -124,6 +124,7 @@ def run(context):
     except Exception as e:
         logger.exception(f"模式4执行期间发生错误: {e}")
         context.final_message = f"模式4执行失败: {e}"
+        raise # 重新抛出异常，以便 app.py 能捕获它
     finally:
         # 模式特定的临时文件（如果不由 collect_player_data 清理）可以在此清理
         # 但 collect_player_data 应该使用 context.shared.base_temp_dir 下的模式特定临时文件

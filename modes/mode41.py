@@ -118,5 +118,6 @@ def run(context):
     except Exception as e:
         logger.exception(f"模式41执行期间发生未预料的错误: {e}")
         context.shared.final_message = f"模式41执行期间发生严重错误: {e}"
+        raise # 重新抛出异常，以便 app.py 能捕获它
     finally:
         logger.info("模式41执行完毕。")

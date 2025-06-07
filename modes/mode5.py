@@ -115,5 +115,6 @@ def run(context):
     except Exception as e:
         logger.exception(f"模式5执行期间发生错误: {e}")
         context.final_message = f"模式5执行失败: {e}"
+        raise # 重新抛出异常，以便 app.py 能捕获它
     finally:
         logger.info("模式5执行完毕。")

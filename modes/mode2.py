@@ -162,5 +162,6 @@ def run(context):
 
     except Exception as e:
         logger.exception(f"模式2执行期间发生错误: {e}")
+        raise # 重新抛出异常，以便 app.py 能捕获它
     finally:
         logger.info("模式2执行完毕。")

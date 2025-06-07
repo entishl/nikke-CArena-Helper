@@ -9,10 +9,10 @@
     "log_filename": "app_log.log"
   },
   "delay_settings": {
-    "gui_startup": 5.0,
-    "after_player_entry": 1.5,
-    "after_team_click": 0.5,
-    "after_click_player_details": 3.0
+    "gui_startup": 1.0,
+    "after_player_entry": 1.0,
+    "after_team_click": 0.3,
+    "after_click_player_details": 1.0
   },
   "mode_specific_defaults": {
     "mode1": {

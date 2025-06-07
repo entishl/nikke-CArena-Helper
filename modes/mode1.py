@@ -1,4 +1,5 @@
 from core import utils as core_utils
+import os
 from core import player_processing
 # constants 可以通过 context.shared.constants 访问，或直接导入
 # from core import constants as cc
@@ -78,7 +79,7 @@ def run(context):
                 images_to_stitch,
                 final_output_path,
                 spacing=getattr(mode_config, 'image_spacing', 20), # 从配置读取
-                background_color=core_utils.parse_color_string(getattr(mode_config, 'stitch_background_color_str', "0,0,0"), logger) # 从配置读取并解析
+                bg_color=core_utils.parse_color_string(getattr(mode_config, 'stitch_background_color_str', "0,0,0"), logger) # 从配置读取并解析
             )
             logger.info(f"模式1: 结果已保存到 {final_output_path}")
         else:
@@ -86,6 +87,7 @@ def run(context):
 
     except Exception as e:
         logger.exception(f"模式1执行期间发生错误: {e}")
+        raise # 重新抛出异常，以便 app.py 能捕获它
     finally:
         # 可以在这里进行模式特有的临时文件清理（如果需要的话）
         # 但主要的临时文件应由 collect_player_data 内部管理或 app.py 统一清理

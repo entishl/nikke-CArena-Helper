@@ -118,6 +118,7 @@ def run(context):
 
     except Exception as e:
         logger.exception(f"模式9执行期间发生错误: {e}")
+        raise # 重新抛出异常，以便 app.py 能捕获它
     finally:
         logger.info("模式9执行完毕。")
 # 移除了 if __name__ == '__main__': 测试代码块
