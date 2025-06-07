@@ -40,6 +40,7 @@ class SharedResources:
         self.stop_requested = False
         self.logger = logging.getLogger("AppLogger")
         self.app_config = None # 新增：持有解析后的完整 config.json 内容
+        self.delay_config = {} # 新增：持有延迟配置
         self.final_message = None # 用于模式执行后传递总结信息
         self.is_admin = False # GUI适配：添加is_admin属性
         self.available_modes = [] # GUI适配：存储从config.json加载的模式元数据
@@ -206,20 +207,6 @@ class ModeSpecificConfig:
 import sys # 确保 sys 已导入
 import os  # 确保 os 已导入
 
-def get_base_path():
-   """ 获取应用程序的基础路径，用于查找资源文件。"""
-   if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
-       # PyInstaller one-file bundle in temporary _MEIPASS directory
-       # For data files placed next to the executable (like in one-dir),
-       # we need the directory of the executable itself.
-       return os.path.dirname(sys.executable)
-   elif getattr(sys, 'frozen', False):
-       # PyInstaller one-dir bundle or other frozen environment
-       return os.path.dirname(sys.executable)
-   else:
-       # Running as a standard Python script
-       return os.path.dirname(os.path.abspath(__file__))
-
 def load_app_config(logger):
    """
    加载应用程序配置。
@@ -228,7 +215,7 @@ def load_app_config(logger):
    - 处理文件未找到、JSON 格式错误或其他异常。
    - 如果失败，记录详细错误并返回默认配置。
    """
-   base_path = get_base_path()
+   base_path = core_utils.get_base_path()
    config_filepath = os.path.join(base_path, "config.json")
    logger.info(f"Attempting to load config from: {config_filepath}")
    try:
@@ -305,6 +292,32 @@ def initialize_app_context(logger):
     context.shared.constants = core_constants
     context.shared.base_temp_dir = os.path.abspath(MAIN_TEMP_DIR)
     context.shared.base_output_dir = os.path.abspath(MAIN_OUTPUT_DIR)
+
+    # 加载延迟设置
+    delay_settings_from_config = app_config_data.get('delay_settings', {})
+    default_delays = {
+        'gui_startup': 5.0,
+        'after_player_entry': 3.0,
+        'after_team_click': 1.5,
+        'after_click_player_details': 2.5 # 新增：确保此项能从配置加载
+    }
+    
+    # 从配置加载值，如果缺失则使用默认值
+    loaded_delays = {
+        key: delay_settings_from_config.get(key, default_value)
+        for key, default_value in default_delays.items()
+    }
+    
+    # 检查是否有任何键使用了默认值，并记录警告
+    missing_or_invalid_keys = [
+        key for key in default_delays
+        if key not in delay_settings_from_config or not isinstance(delay_settings_from_config[key], (int, float))
+    ]
+    if missing_or_invalid_keys:
+        logger.warning(f"在 config.json 的 'delay_settings' 中，以下键缺失或值无效，已使用默认值: {', '.join(missing_or_invalid_keys)}")
+
+    context.shared.delay_config = loaded_delays
+    logger.info(f"成功加载延迟配置: {context.shared.delay_config}")
 
     # GUI适配：加载模式元数据
     if app_config_data and isinstance(app_config_data.get("modes_meta"), list):

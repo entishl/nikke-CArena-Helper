@@ -5,6 +5,7 @@ import logging
 
 from .utils import click_coordinates, take_screenshot, stitch_images_horizontally, check_stop_signal # stitch_images_horizontally 稍后添加
 from .player_processing import collect_player_data
+from . import constants as core_constants
 
 def process_match_flow(
     context,
@@ -20,9 +21,9 @@ def process_match_flow(
     team_screenshot_region_rel: tuple,# 从主配置传入
     close_player_view_coord_rel: tuple | None, # 从主配置传入
     # 可以在这里添加更多针对单场比赛特有的延迟或配置
-    delay_after_result_screenshot: float = 0.5,
-    delay_after_player_collection: float = 0.5,
-    delay_after_close_result: float = 1.0
+    delay_after_result_screenshot: float = core_constants.DEFAULT_DELAY_AFTER_RESULT_SCREENSHOT,
+    delay_after_player_collection: float = core_constants.DEFAULT_DELAY_AFTER_PLAYER_COLLECTION,
+    delay_after_close_result: float = core_constants.DEFAULT_DELAY_AFTER_CLOSE_RESULT
 ) -> str | None:
     """
     处理单场比赛的完整流程：截图赛果、收集双方玩家数据、拼接总图、关闭赛果。

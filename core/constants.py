@@ -5,18 +5,35 @@ BASE_WIDTH = 3840
 BASE_HEIGHT = 2160
 
 # --- 默认延迟时间 (可以被具体调用覆盖) ---
-DEFAULT_INITIAL_DELAY_AFTER_ENTRY = 3.0
-DEFAULT_DELAY_AFTER_TEAM_CLICK = 1.5
+# DEFAULT_INITIAL_DELAY_AFTER_ENTRY = 3.0 # 已移至 config.json -> delay_settings.after_player_entry
+# DEFAULT_DELAY_AFTER_TEAM_CLICK = 1.5 # 已移至 config.json -> delay_settings.after_team_click
 DEFAULT_DELAY_AFTER_INFO_ACTION = 0.5  # 用于 player_info_regions_config 中的动作
-DEFAULT_DELAY_AFTER_CLOSE_VIEW = 1.0
+DEFAULT_DELAY_AFTER_CLOSE_VIEW = 0.5
 # utils.py 中的 ACTION_DELAY 也会用到，最终应统一来源，暂时在此处也定义一个参考值
 # 如果 utils.py 中的 ACTION_DELAY 被视为更通用，则此处可以不定义或引用它
 UNIVERSAL_ACTION_DELAY = 1.2
 
+
+# gui_app.py
+# GUI_STARTUP_DELAY = 5.0  # 脚本启动前的固定等待, 已移至 config.json -> delay_settings.gui_startup
+
+# core/utils.py
+POST_SCREENSHOT_DELAY = 0.2  # 截图后的等待
+WINDOW_RESTORE_DELAY = 1.0  # 窗口恢复时的等待
+POST_SHOW_WINDOW_DELAY = 0.1  # ShowWindow 后的短暂等待
+POST_WINDOW_ACTIVATION_DELAY = 0.5  # 窗口激活操作后的等待
+
+# core/player_processing.py
+POST_WINDOW_ACTIVATION_SHORT_DELAY = 0.2
+
+# core/match_processing.py (用作函数默认参数)
+DEFAULT_DELAY_AFTER_RESULT_SCREENSHOT = 0.5
+DEFAULT_DELAY_AFTER_PLAYER_COLLECTION = 0.5
+# 注意: 此值与 DEFAULT_DELAY_AFTER_CLOSE_VIEW 相同，但用于不同的上下文 (关闭比赛结果后)。
+DEFAULT_DELAY_AFTER_CLOSE_RESULT = 1.0
 # --- 目标窗口与进程 ---
 APP_TITLE = "冠军竞技场截图工具" # GUI 应用标题
 TARGET_PROCESS_NAME = "nikke.exe"
-# TARGET_WINDOW_TITLE = "NIKKE" # 旧的单一标题，将被下面的列表取代
 POSSIBLE_TARGET_WINDOW_TITLES = ["NIKKE", "勝利女神：妮姬", "胜利女神：新的希望"]
 DEFAULT_TARGET_WINDOW_TITLE_INDEX = 0 # 默认使用列表中的第一个标题
 
@@ -336,8 +353,8 @@ R_M9_WEBP_METHOD = 6
 #      (即 `_to_rel_coord((2418, 202))`)。
 #
 # 2. 关闭5队阵容视图 (`close_player_view_coord_rel` 参数):
-#    - `PRED_EXIT_PLAYER_VIEW_REL` (源自 predition.py) 和
-#      `R_CLOSE_TEAMVIEW_REL` (源自 reviewer.py)
+#    - `PRED_EXIT_PLAYER_VIEW_REL` 
+#      `R_CLOSE_TEAMVIEW_REL` 
 #      均由相同的绝对坐标 (2370, 681) 转换而来，因此它们是等效的。
 #    - `collect_player_data` 函数接收此参数，并负责执行此最终的关闭动作。
 #      调用时，根据上下文选择 `PRED_EXIT_PLAYER_VIEW_REL` 或 `R_CLOSE_TEAMVIEW_REL` 均可。

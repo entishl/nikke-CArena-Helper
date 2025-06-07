@@ -148,7 +148,7 @@ def take_screenshot(context, relative_region: tuple, window: pygetwindow.Win32Wi
         screenshot = pyautogui.screenshot(region=actual_region)
         screenshot.save(filename)
         logger.info(f"截图已保存为 '{filename}'")
-        time.sleep(0.2)
+        time.sleep(core_constants.POST_SCREENSHOT_DELAY)
         return True
 
     except Exception as e:
@@ -334,7 +334,7 @@ def find_and_activate_window(context, selected_window_title_override: str = None
                     if win32gui.IsIconic(target_hwnd):
                         logger.info("窗口已最小化，正在恢复...")
                         win32gui.ShowWindow(target_hwnd, win32con.SW_RESTORE)
-                        time.sleep(1.0)
+                        time.sleep(core_constants.WINDOW_RESTORE_DELAY)
 
                     logger.info("正在激活窗口...")
                     try:
@@ -342,10 +342,10 @@ def find_and_activate_window(context, selected_window_title_override: str = None
                     except Exception as e_set_fg:
                         logger.warning(f"SetForegroundWindow 失败({e_set_fg})，尝试用 ShowWindow 激活...")
                         win32gui.ShowWindow(target_hwnd, win32con.SW_SHOW)
-                        time.sleep(0.1)
+                        time.sleep(core_constants.POST_SHOW_WINDOW_DELAY)
                         win32gui.SetForegroundWindow(target_hwnd)
 
-                    time.sleep(0.5)
+                    time.sleep(core_constants.POST_WINDOW_ACTIVATION_DELAY)
                     
                     foreground_hwnd = win32gui.GetForegroundWindow()
                     if foreground_hwnd == target_hwnd:
@@ -878,17 +878,17 @@ def activate_nikke_window_if_needed(context):
         if win32gui.IsIconic(target_hwnd):
             logger.info("窗口已最小化，正在恢复...")
             win32gui.ShowWindow(target_hwnd, win32con.SW_RESTORE)
-            time.sleep(1.0) # 等待窗口恢复
+            time.sleep(core_constants.WINDOW_RESTORE_DELAY) # 等待窗口恢复
 
         try:
             win32gui.SetForegroundWindow(target_hwnd)
         except Exception as e_set_fg: # pywintypes.error 可能发生
             logger.warning(f"SetForegroundWindow 失败({e_set_fg})，尝试用 ShowWindow 激活...")
             win32gui.ShowWindow(target_hwnd, win32con.SW_SHOW) # 尝试另一种方式显示
-            time.sleep(0.1) # 短暂等待
+            time.sleep(core_constants.POST_SHOW_WINDOW_DELAY) # 短暂等待
             win32gui.SetForegroundWindow(target_hwnd) # 再次尝试置顶
 
-        time.sleep(0.5) # 等待激活操作生效
+        time.sleep(core_constants.POST_WINDOW_ACTIVATION_DELAY) # 等待激活操作生效
 
         final_foreground_hwnd = win32gui.GetForegroundWindow()
         if final_foreground_hwnd == target_hwnd:
@@ -908,3 +908,19 @@ def activate_nikke_window_if_needed(context):
     except Exception as e:
         logger.error(f"activate_nikke_window_if_needed: 激活 NIKKE 窗口时发生错误: {e}")
         return False
+
+def get_base_path():
+   """ 获取应用程序的基础路径，用于查找资源文件。"""
+   if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+       # PyInstaller one-file bundle in temporary _MEIPASS directory
+       # For data files placed next to the executable (like in one-dir),
+       # we need the directory of the executable itself.
+       return os.path.dirname(sys.executable)
+   elif getattr(sys, 'frozen', False):
+       # PyInstaller one-dir bundle or other frozen environment
+       return os.path.dirname(sys.executable)
+   else:
+       # Running as a standard Python script
+       # Running as a standard Python script
+       # __file__ is core/utils.py, so dirname is core/. We need its parent.
+       return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

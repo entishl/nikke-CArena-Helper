@@ -8,12 +8,7 @@ from PIL import Image
 
 # 从 core.utils 导入必要的函数
 from .utils import click_coordinates, take_screenshot, stitch_images_vertically, check_stop_signal
-
-# 可以在这里定义一些与玩家处理相关的常量，或者从 core.constants 导入 (如果创建了的话)
-# 例如：DEFAULT_INITIAL_DELAY = 3.0
-# DEFAULT_DELAY_AFTER_TEAM_CLICK = 1.5
-# DEFAULT_DELAY_AFTER_INFO_ACTION = 0.5
-# DEFAULT_DELAY_AFTER_CLOSE_VIEW = 1.0
+from . import constants as core_constants
 
 def collect_player_data(
     context, # 新增 context 参数
@@ -24,10 +19,10 @@ def collect_player_data(
     close_player_view_coord_rel: tuple | None, # 允许为 None，如果不总是需要关闭
     temp_file_prefix: str,
     # temp_dir: str, # 将从 context.shared.base_temp_dir 获取
-    initial_delay_after_entry: float = 3.0,
-    delay_after_team_click: float = 1.5,
+    # initial_delay_after_entry: float, # 将从 context.shared.delay_config 获取
+    # delay_after_team_click: float, # 将从 context.shared.delay_config 获取
     # player_info_regions_config 中的 'delay_after' 将用于信息区域操作后的延迟
-    delay_after_close_view: float = 1.0
+    delay_after_close_view: float = core_constants.DEFAULT_DELAY_AFTER_CLOSE_VIEW
 ) -> str | None:
     """
     处理单个玩家的完整信息和队伍截图流程。
@@ -53,6 +48,12 @@ def collect_player_data(
     logger = getattr(context.shared, 'logger', logging) # 从 context 获取 logger
     nikke_window = getattr(context.shared, 'nikke_window', None) # 从 context 获取 nikke_window
     base_temp_dir = getattr(context.shared, 'base_temp_dir', './temp_player_data') # 从 context 获取 base_temp_dir
+    
+    # 从 context 获取延迟配置，如果缺失则使用硬编码的后备值
+    delay_config = getattr(context.shared, 'delay_config', {})
+    initial_delay_after_entry = delay_config.get('after_player_entry', 3.0)
+    delay_after_team_click = delay_config.get('after_team_click', 1.5)
+
 
     if not nikke_window:
         error_msg = f"错误 ({temp_file_prefix} - 玩家数据收集)：NIKKE 窗口未设置。"
@@ -107,7 +108,7 @@ def collect_player_data(
 
             try:
                 if hasattr(nikke_window, 'activate'): nikke_window.activate()
-                time.sleep(0.1)
+                time.sleep(core_constants.POST_WINDOW_ACTIVATION_SHORT_DELAY)
             except Exception as e_act:
                 logger.debug(f"    尝试激活窗口时出现轻微问题: {e_act}")
 
@@ -160,7 +161,7 @@ def collect_player_data(
 
         try:
             if hasattr(nikke_window, 'activate'): nikke_window.activate()
-            time.sleep(0.1)
+            time.sleep(core_constants.POST_WINDOW_ACTIVATION_SHORT_DELAY)
         except Exception as e_act:
             logger.debug(f"    尝试激活窗口时出现轻微问题: {e_act}")
 

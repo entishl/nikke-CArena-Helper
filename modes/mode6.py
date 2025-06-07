@@ -1,12 +1,11 @@
 # modes/mode6.py
 import time
 import os # For path joining if needed, though utils should handle it
+import copy # 导入copy模块
 
 from core import utils as core_utils
 from core import match_processing
 # Constants will be accessed via context.shared.constants
-
-# Removed _get_pixel_color_for_mode as it's now in core_utils.get_pixel_color_relative
 
 def run(context):
     logger = context.shared.logger
@@ -26,10 +25,7 @@ def run(context):
     group_file_prefix_base = getattr(mode_config, 'm6_group_prefix', 'Group')
 
     # 确保索引在合理范围内 (假设分组按钮键是 group_1 到 group_8)
-    # R_NUM_GROUPS 似乎未在常量中明确定义，但通常是8个组。
-    # 我们假设 cc.R_GROUP_BUTTONS_REL 包含了所有有效的分组按钮键，例如 "group_1" 到 "group_8"
-    # 或者我们可以从 cc.R_GROUP_BUTTONS_REL 的键来推断最大组数，但这更复杂。
-    # 暂时假设最大组数是8 (索引7)。
+    # 最大组数是8 (索引7)。
     num_total_groups_available = cc.R_NUM_TOTAL_GROUPS # 使用常量
     start_group_idx = max(0, min(start_group_idx, num_total_groups_available - 1))
     end_group_idx = max(start_group_idx, min(end_group_idx, num_total_groups_available - 1))
@@ -152,6 +148,17 @@ def run(context):
                 if core_utils.check_stop_signal(context): return
             
             # --- 调用核心比赛处理流程 ---
+            # 从配置加载延迟并更新 player_info_regions_config
+            delay_config = getattr(context.shared, 'delay_config', {})
+            delay_value = delay_config.get('after_click_player_details', 2.5) # 使用默认值2.5
+            
+            player_info_config = copy.deepcopy(cc.R_PLAYER_INFO_CONFIG_SEQ)
+            for item in player_info_config:
+                if item.get('name') == 'click_detail_info_2':
+                    item['delay_after'] = delay_value
+                    logger.info(f"Mode6: 已将 'click_detail_info_2' 的延迟更新为 {delay_value} 秒。")
+                    break
+
             # 直接使用常量，移除 getattr
             success = match_processing.process_match_flow(
                 context=context,
@@ -161,7 +168,7 @@ def run(context):
                 p2_entry_rel=cc.R_PLAYER2_ENTRY_REL,
                 result_region_rel=cc.R_RESULT_REGION_REL,
                 close_result_rel=cc.R_CLOSE_RESULT_REL,
-                player_info_regions_config=cc.R_PLAYER_INFO_CONFIG_SEQ,
+                player_info_regions_config=player_info_config, # 使用更新后的配置
                 team_button_coords_rel=cc.R_TEAM_BUTTONS_REL,
                 team_screenshot_region_rel=cc.R_TEAM_SCREENSHOT_REGION_REL,
                 close_player_view_coord_rel=cc.R_CLOSE_TEAMVIEW_REL # R_CLOSE_TEAMVIEW_REL 与 R_EXIT_PLAYER_VIEW_REL 等效

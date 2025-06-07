@@ -8,6 +8,12 @@
     "log_to_file": false,
     "log_filename": "app_log.log"
   },
+  "delay_settings": {
+    "gui_startup": 5.0,
+    "after_player_entry": 1.5,
+    "after_team_click": 0.1,
+    "after_click_player_details": 2.5
+  },
   "mode_specific_defaults": {
     "mode1": {
       "output_filename_suffix": "_prediction",
@@ -31,7 +37,7 @@
       "overview_layout_cols": 4,
       "save_individual_images": false
     },
-      "mode41": {
+    "mode41": {
       "output_filename_suffix": "_group_stage_match",
       "player_temp_prefix": "gs_player"
     },

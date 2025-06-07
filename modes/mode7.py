@@ -1,6 +1,7 @@
 # modes/mode7.py
 import time
 import os
+import copy # 导入copy模块
 
 from core import utils as core_utils
 from core import match_processing
@@ -123,6 +124,17 @@ def run(context):
                 if core_utils.check_stop_signal(context): return
 
             # --- 调用核心比赛处理流程 ---
+            # 从配置加载延迟并更新 player_info_regions_config
+            delay_config = getattr(context.shared, 'delay_config', {})
+            delay_value = delay_config.get('after_click_player_details', 2.5) # 使用默认值2.5
+            
+            player_info_config = copy.deepcopy(cc.R_PLAYER_INFO_CONFIG_SEQ)
+            for item in player_info_config:
+                if item.get('name') == 'click_detail_info_2':
+                    item['delay_after'] = delay_value
+                    logger.info(f"Mode7: 已将 'click_detail_info_2' 的延迟更新为 {delay_value} 秒。")
+                    break
+
             # 直接使用常量，移除 getattr
             success = match_processing.process_match_flow(
                 context=context,
@@ -132,7 +144,7 @@ def run(context):
                 p2_entry_rel=cc.R_PLAYER2_ENTRY_REL,
                 result_region_rel=cc.R_RESULT_REGION_REL,
                 close_result_rel=cc.R_CLOSE_RESULT_REL,
-                player_info_regions_config=cc.R_PLAYER_INFO_CONFIG_SEQ, # 直接使用
+                player_info_regions_config=player_info_config, # 使用更新后的配置
                 team_button_coords_rel=cc.R_TEAM_BUTTONS_REL, # 直接使用
                 team_screenshot_region_rel=cc.R_TEAM_SCREENSHOT_REGION_REL, # 直接使用
                 close_player_view_coord_rel=cc.R_CLOSE_TEAMVIEW_REL # R_CLOSE_TEAMVIEW_REL 与 R_EXIT_PLAYER_VIEW_REL 等效

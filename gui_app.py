@@ -7,6 +7,7 @@ from PIL import Image, ImageTk # Import ImageTk
 import os # For path joining
 import ctypes # For admin check
 import sys # For exiting
+import json # 新增：用于保存配置
 
 # Function to check for admin rights and exit if not granted
 def check_admin_and_exit_if_not():
@@ -37,7 +38,7 @@ try:
         AppContext, # AppContext moved here
         # stop_script_callback # This might be handled differently or passed
     )
-    from core.utils import get_asset_path, activate_nikke_window_if_needed # AppContext removed from here, activate_nikke_window_if_needed added
+    from core.utils import get_asset_path, activate_nikke_window_if_needed, get_base_path # AppContext removed from here, activate_nikke_window_if_needed added
     # APP_TITLE will be loaded from app_context.shared.app_config or a default if not found
     # MODE_CONFIGS will be replaced by app_context.shared.available_modes
     from core.constants import APP_TITLE # APP_TITLE can still be a fallback or defined here if not in config
@@ -53,6 +54,149 @@ except ImportError as e:
     def get_asset_path(asset_name): return os.path.join("assets", asset_name) # Placeholder, assumes assets folder
     APP_TITLE = "Nikke Cheerleading Tool (Fallback)"
     # MODE_CONFIGS placeholder is no longer needed as it will be dynamically loaded
+
+
+# =================================================================================
+# Tooltip Class for hover-over hints
+# =================================================================================
+class Tooltip:
+    """
+    Creates a tooltip for a given widget.
+    """
+    def __init__(self, widget, text, wraplength=250):
+        self.widget = widget
+        self.text = text
+        self.wraplength = wraplength
+        self.tooltip_window = None
+        self.widget.bind("<Enter>", self.show_tooltip)
+        self.widget.bind("<Leave>", self.hide_tooltip)
+
+    def show_tooltip(self, event=None):
+        if self.tooltip_window or not self.text:
+            return
+        x, y, _, _ = self.widget.bbox("insert")
+        x += self.widget.winfo_rootx() + 25
+        y += self.widget.winfo_rooty() + 25
+
+        self.tooltip_window = ctk.CTkToplevel(self.widget)
+        self.tooltip_window.wm_overrideredirect(True)
+        self.tooltip_window.wm_geometry(f"+{x}+{y}")
+
+        label = ctk.CTkLabel(self.tooltip_window, text=self.text, wraplength=self.wraplength,
+                               fg_color=("#F0F0F0", "#303030"), text_color=("#000000", "#FFFFFF"),
+                               corner_radius=4, justify="left", padx=8, pady=4)
+        label.pack(ipadx=1, ipady=1)
+
+    def hide_tooltip(self, event=None):
+        if self.tooltip_window:
+            self.tooltip_window.destroy()
+        self.tooltip_window = None
+
+
+class SettingsWindow(ctk.CTkToplevel):
+    def __init__(self, master, app_context):
+        super().__init__(master)
+        self.app_context = app_context
+        self.transient(master)
+        self.title("延迟设置")
+        self.geometry("450x280") # 调整窗口大小以适应新布局
+        self.grab_set()
+
+        # 为延迟设置创建 StringVar
+        self.delay_gui_startup_var = ctk.StringVar()
+        self.delay_after_player_entry_var = ctk.StringVar()
+        self.delay_after_team_click_var = ctk.StringVar()
+        self.delay_after_click_player_details_var = ctk.StringVar() # 新增
+
+        self.create_widgets()
+        self.load_delay_settings_to_gui()
+
+    def create_widgets(self):
+        main_frame = ctk.CTkFrame(self)
+        main_frame.pack(padx=20, pady=20, fill="both", expand=True)
+        main_frame.grid_columnconfigure(0, weight=1) # 让标签列扩展
+        main_frame.grid_columnconfigure(2, weight=0) # 输入框列不扩展
+
+        # --- Row 0: 脚本启动延迟 ---
+        ctk.CTkLabel(main_frame, text="脚本启动延迟(秒):").grid(row=0, column=0, padx=5, pady=5, sticky="w")
+        info_icon0 = ctk.CTkLabel(main_frame, text=" (?)", text_color="gray", cursor="hand2")
+        info_icon0.grid(row=0, column=1, padx=(0, 5), pady=5, sticky="w")
+        Tooltip(info_icon0, "从点击“启动脚本”到激活游戏的等待时间\n用于给你时间进入正确的界面\n默认值5")
+        self.delay_gui_startup_entry = ctk.CTkEntry(main_frame, textvariable=self.delay_gui_startup_var, width=80)
+        self.delay_gui_startup_entry.grid(row=0, column=2, padx=5, pady=5, sticky="e")
+
+        # --- Row 1: 点击玩家头像延迟 ---
+        ctk.CTkLabel(main_frame, text="点击玩家头像延迟(秒):").grid(row=1, column=0, padx=5, pady=5, sticky="w")
+        info_icon1 = ctk.CTkLabel(main_frame, text=" (?)", text_color="gray", cursor="hand2")
+        info_icon1.grid(row=1, column=1, padx=(0, 5), pady=5, sticky="w")
+        Tooltip(info_icon1, "在对阵表中点击玩家头像后的等待时间\n用于等待玩家队伍面板的加载\n程序内置保护时间，理论上可以设置为0，默认值1.5")
+        self.delay_after_player_entry_entry = ctk.CTkEntry(main_frame, textvariable=self.delay_after_player_entry_var, width=80)
+        self.delay_after_player_entry_entry.grid(row=1, column=2, padx=5, pady=5, sticky="e")
+
+        # --- Row 2: 队伍切换延迟 ---
+        ctk.CTkLabel(main_frame, text="队伍切换延迟(秒):").grid(row=2, column=0, padx=5, pady=5, sticky="w")
+        info_icon2 = ctk.CTkLabel(main_frame, text=" (?)", text_color="gray", cursor="hand2")
+        info_icon2.grid(row=2, column=1, padx=(0, 5), pady=5, sticky="w")
+        Tooltip(info_icon2, "在玩家队伍界面，切换队伍的时间\n用于等待队伍信息刷新\n内置保护时间，理论上可以设置为0，默认值0.5")
+        self.delay_after_team_click_entry = ctk.CTkEntry(main_frame, textvariable=self.delay_after_team_click_var, width=80)
+        self.delay_after_team_click_entry.grid(row=2, column=2, padx=5, pady=5, sticky="e")
+
+        # --- Row 3: 玩家详情面板延迟 ---
+        ctk.CTkLabel(main_frame, text="玩家详情面板延迟(秒):").grid(row=3, column=0, padx=5, pady=5, sticky="w")
+        info_icon3 = ctk.CTkLabel(main_frame, text=" (?)", text_color="gray", cursor="hand2")
+        info_icon3.grid(row=3, column=1, padx=(0, 5), pady=5, sticky="w")
+        Tooltip(info_icon3, "进入玩家详情面板的等待时间\n需要加载大量数据，网络环境差的可以设置得再大一些\n理论上可以设置为0，但严重不建议\n默认值3")
+        self.delay_after_click_player_details_entry = ctk.CTkEntry(main_frame, textvariable=self.delay_after_click_player_details_var, width=80)
+        self.delay_after_click_player_details_entry.grid(row=3, column=2, padx=5, pady=5, sticky="e")
+
+        # --- Buttons ---
+        button_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        button_frame.grid(row=4, column=0, columnspan=3, pady=(20, 0))
+        
+        self.save_button = ctk.CTkButton(button_frame, text="保存并关闭", command=self.save_and_close)
+        self.save_button.pack(side="left", padx=10)
+
+        self.cancel_button = ctk.CTkButton(button_frame, text="取消", command=self.destroy)
+        self.cancel_button.pack(side="left", padx=10)
+
+    def load_delay_settings_to_gui(self):
+        if self.app_context and hasattr(self.app_context, 'shared') and hasattr(self.app_context.shared, 'delay_config'):
+            delay_config = self.app_context.shared.delay_config
+            self.delay_gui_startup_var.set(str(delay_config.get('gui_startup', 5.0)))
+            self.delay_after_player_entry_var.set(str(delay_config.get('after_player_entry', 3.0)))
+            self.delay_after_team_click_var.set(str(delay_config.get('after_team_click', 1.5)))
+            self.delay_after_click_player_details_var.set(str(delay_config.get('after_click_player_details', 2.5)))
+
+    def save_and_close(self):
+        logger = self.app_context.shared.logger
+        try:
+            new_gui_startup = float(self.delay_gui_startup_var.get())
+            new_after_player_entry = float(self.delay_after_player_entry_var.get())
+            new_after_team_click = float(self.delay_after_team_click_var.get())
+            new_after_click_player_details = float(self.delay_after_click_player_details_var.get())
+
+            delay_config = self.app_context.shared.delay_config
+            delay_config['gui_startup'] = new_gui_startup
+            delay_config['after_player_entry'] = new_after_player_entry
+            delay_config['after_team_click'] = new_after_team_click
+            delay_config['after_click_player_details'] = new_after_click_player_details
+
+            self.app_context.shared.app_config['delay_settings'] = delay_config
+
+            config_filepath = os.path.join(get_base_path(), "config.json")
+            with open(config_filepath, 'w', encoding='utf-8') as f:
+                json.dump(self.app_context.shared.app_config, f, indent=2, ensure_ascii=False)
+            
+            logger.info(f"延迟设置已成功保存到 {config_filepath}")
+            self.master.status_label.configure(text="延迟设置已保存！", text_color="green")
+            self.destroy()
+
+        except ValueError:
+            logger.error("保存延迟设置失败：输入值无效，请输入有效的数字。")
+            ctypes.windll.user32.MessageBoxW(self.winfo_id(), "保存失败！\n\n所有延迟值都必须是有效的数字 (例如 3.0 或 5)。", "输入错误", 0x00000010)
+        except Exception as e:
+            logger.exception("保存延迟设置时发生未知错误:")
+            ctypes.windll.user32.MessageBoxW(self.winfo_id(), f"保存延迟设置时发生未知错误:\n\n{e}", "严重错误", 0x00000010)
 
 
 class NikkeGuiApp(ctk.CTk):
@@ -185,6 +329,7 @@ class NikkeGuiApp(ctk.CTk):
 
         self.nikke_window_status_label = None
         self.admin_status_label = None
+        self.settings_window = None
         
         self.create_widgets() # Create widgets before checking status that updates them
 
@@ -205,8 +350,8 @@ class NikkeGuiApp(ctk.CTk):
         self.sidebar_frame.grid_rowconfigure(20, weight=1) # Push appearance mode to bottom, ensure content is pushed up
 
         # Use the title set in __init__ which might come from app_config
-        sidebar_title = ctk.CTkLabel(self.sidebar_frame, text=self.title(), font=ctk.CTkFont(size=20, weight="bold"))
-        sidebar_title.grid(row=0, column=0, padx=20, pady=(20, 10))
+        sidebar_title = ctk.CTkLabel(self.sidebar_frame, text=self.title(), font=ctk.CTkFont(size=16, weight="bold"))
+        sidebar_title.grid(row=0, column=0, padx=18, pady=(18, 10))
 
         self.mode_buttons = {}
         current_row = 1
@@ -274,12 +419,12 @@ class NikkeGuiApp(ctk.CTk):
                     continue
 
                 group_label = ctk.CTkLabel(self.sidebar_frame, text=group_name, font=ctk.CTkFont(weight="bold"))
-                group_label.grid(row=current_row, column=0, padx=20, pady=(10, 5), sticky="w")
+                group_label.grid(row=current_row, column=0, padx=20, pady=(8, 5), sticky="w")
                 current_row += 1
 
                 if description:
                     desc_label = ctk.CTkLabel(self.sidebar_frame, text=description, font=ctk.CTkFont(size=11), anchor="w", justify="left")
-                    desc_label.grid(row=current_row, column=0, padx=25, pady=(0, 8), sticky="w")
+                    desc_label.grid(row=current_row, column=0, padx=20, pady=(0, 4), sticky="w")
                     current_row += 1
                 
                 if modes_for_this_group_obj:
@@ -289,7 +434,7 @@ class NikkeGuiApp(ctk.CTk):
                         # 例如，对于 ID_CHECK_RESULT，如果配置正确，其 name 应为 "（赛果）查看赛果"
                         btn_text = mode_meta.get('name', f"模式 {mode_id}")
                         
-                        btn = ctk.CTkButton(self.sidebar_frame, text=btn_text, height=25, font=ctk.CTkFont(size=12))
+                        btn = ctk.CTkButton(self.sidebar_frame, text=btn_text, height=16, font=ctk.CTkFont(size=12))
                         
                         btn.grid(row=current_row, column=0, padx=20, pady=3, sticky="ew")
                         self.mode_buttons[mode_id] = btn
@@ -302,7 +447,7 @@ class NikkeGuiApp(ctk.CTk):
         
         # --- Server Selection ---
         server_label = ctk.CTkLabel(self.sidebar_frame, text="服务器选择:", font=ctk.CTkFont(weight="bold"))
-        server_label.grid(row=current_row, column=0, padx=20, pady=(15, 5), sticky="w")
+        server_label.grid(row=current_row, column=0, padx=20, pady=(10, 5), sticky="w")
         current_row += 1
 
         server_display_options = list(self.server_options_map.keys()) # Defined in __init__
@@ -319,14 +464,14 @@ class NikkeGuiApp(ctk.CTk):
 
         # --- Image Display Switch ---
         switch_frame = ctk.CTkFrame(self.sidebar_frame, fg_color="transparent")
-        switch_frame.grid(row=current_row, column=0, padx=20, pady=(15, 5), sticky="ew")
+        switch_frame.grid(row=current_row, column=0, padx=20, pady=(10, 5), sticky="ew")
         current_row += 1
         
         switch_frame.grid_columnconfigure(0, weight=0) # Label
         switch_frame.grid_columnconfigure(1, weight=1) # Switch, allow it to expand if needed or align right
 
         image_switch_label = ctk.CTkLabel(switch_frame, text="显示指引图像:", font=ctk.CTkFont(weight="bold"))
-        image_switch_label.grid(row=0, column=0, sticky="w", padx=(0, 10)) # Add some padding between label and switch
+        image_switch_label.grid(row=0, column=0, sticky="w", padx=(0, 0)) # Add some padding between label and switch
 
         self.image_display_switch = ctk.CTkSwitch(
             switch_frame,
@@ -336,9 +481,14 @@ class NikkeGuiApp(ctk.CTk):
         )
         self.image_display_switch.grid(row=0, column=1, sticky="w") # Align switch to the left of its cell
 
+        # --- Settings Button ---
+        self.settings_button = ctk.CTkButton(self.sidebar_frame, text="延迟配置", command=self.open_settings_window)
+        self.settings_button.grid(row=current_row, column=0, padx=20, pady=(10, 0), sticky="ew")
+        current_row += 1
+
         # --- Content Frame ---
         self.content_frame = ctk.CTkFrame(self)
-        self.content_frame.grid(row=0, column=1, rowspan=3, sticky="nsew", padx=20, pady=20)
+        self.content_frame.grid(row=0, column=1, rowspan=3, sticky="nsew", padx=20, pady=15)
         self.content_frame.grid_rowconfigure(0, weight=1)
         self.content_frame.grid_columnconfigure(0, weight=1)
 
@@ -352,7 +502,7 @@ class NikkeGuiApp(ctk.CTk):
         # Restore sticky="nsew" as it was in the reference and might work with ImageTk.PhotoImage
         self.image_label.grid(row=0, column=0, sticky="nsew")
 
-        self.log_textbox = ctk.CTkTextbox(self.display_area, wrap="word", state="disabled", height=300)
+        self.log_textbox = ctk.CTkTextbox(self.display_area, wrap="word", state="disabled", height=250)
         # self.log_textbox initially not packed/gridded, shown on demand
 
         # --- Control Area ---
@@ -406,6 +556,12 @@ class NikkeGuiApp(ctk.CTk):
             self.status_label.configure(text="模式加载失败或未配置。")
             self.image_label.configure(image=None, text="请检查应用配置。")
             if self.start_button: self.start_button.configure(state="disabled")
+
+    def open_settings_window(self):
+        if self.settings_window is None or not self.settings_window.winfo_exists():
+            self.settings_window = SettingsWindow(self, self.app_context)
+        else:
+            self.settings_window.focus()
 
     def select_mode(self, mode_value, pressed_button):
         self.current_mode_value = mode_value
@@ -789,8 +945,9 @@ class NikkeGuiApp(ctk.CTk):
                 else:
                     logger.warning("无法激活窗口：app_context.shared.nikke_window 不存在。")
 
-            logger.info(f"准备执行模式 {self.current_mode_value}，等待 5 秒...") # 添加日志
-            time.sleep(5) # 添加等待
+            gui_startup_delay = self.app_context.shared.delay_config.get('gui_startup', 5.0)
+            logger.info(f"准备执行模式 {self.current_mode_value}，等待 {gui_startup_delay} 秒...") # 添加日志
+            time.sleep(gui_startup_delay) # 添加等待
             logger.info("等待结束，开始执行模式。") # 添加日志
 
             execute_mode(self.app_context, self.current_mode_value, mode_specific_inputs)
@@ -883,6 +1040,9 @@ class NikkeGuiApp(ctk.CTk):
         else: # unknown or other status
             popup_text = f"脚本执行完毕，但状态未知。\n\n消息: {message}"
             icon_flag |= 0x00000030 # MB_ICONWARNING
+
+        # 添加 MB_TOPMOST 标志，确保弹窗总在最前
+        icon_flag |= 0x00040000 # MB_TOPMOST
 
         # 使用 ctypes 显示 Windows 消息框
         try:

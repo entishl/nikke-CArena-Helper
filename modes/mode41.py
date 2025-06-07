@@ -1,6 +1,7 @@
 # modes/mode41.py
 import os
 from core import utils as core_utils
+import copy # 导入copy模块
 from core import player_processing
 # 常量将通过 context.shared.constants 访问
 
@@ -38,10 +39,21 @@ def run(context):
                 context.shared.final_message = f"模式41：操作在处理玩家 {player_num} 前被用户取消。"
                 return
 
+            # 从配置加载延迟并更新 player_info_regions_config
+            delay_config = getattr(context.shared, 'delay_config', {})
+            delay_value = delay_config.get('after_click_player_details', 2.5) # 使用默认值2.5
+            
+            player_info_config = copy.deepcopy(cc.R_PLAYER_INFO_CONFIG_SEQ)
+            for item in player_info_config:
+                if item.get('name') == 'click_detail_info_2':
+                    item['delay_after'] = delay_value
+                    logger.info(f"Mode41: 已将 'click_detail_info_2' 的延迟更新为 {delay_value} 秒。")
+                    break
+
             stitched_path = player_processing.collect_player_data(
                 context,
                 player_entry_coord_rel=player_entry_rel,
-                player_info_regions_config=cc.R_PLAYER_INFO_CONFIG_SEQ,
+                player_info_regions_config=player_info_config, # 使用更新后的配置
                 team_button_coords_rel=cc.R_TEAM_BUTTONS_REL,
                 team_screenshot_region_rel=cc.R_TEAM_SCREENSHOT_REGION_REL,
                 close_player_view_coord_rel=cc.R_CLOSE_TEAMVIEW_REL,
@@ -88,8 +100,8 @@ def run(context):
             context,
             player_stitched_image_paths,
             final_output_path,
-            spacing=50,
-            bg_color=(0, 0, 0),
+            spacing=getattr(mode_config, 'image_spacing', 20),
+            bg_color=context.shared.get_stitch_background_color(),
             alignment='center'
         )
 
