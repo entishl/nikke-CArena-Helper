@@ -1092,24 +1092,34 @@ class GUILogHandler(logging.Handler):
         super().__init__()
         self.textbox = textbox_ref # Store the reference, even if initially None
 
-    def emit(self, record):
-        if not self.textbox: # Don't try to log if textbox isn't set yet
-            print(f"GUILogHandler: Textbox not available. Log: {self.format(record)}")
+    def _insert_text(self, msg):
+        """Helper to insert text, called from main thread to ensure thread-safety."""
+        if not self.textbox or not self.textbox.winfo_exists():
+            # If textbox is gone, just print to console as a fallback.
+            print(f"GUI Log (textbox not available): {msg}")
             return
-        
-        msg = self.format(record)
-        # Ensure operations are thread-safe if emit is called from other threads
-        # customtkinter widgets should generally be updated from the main thread.
-        # self.textbox.after(0, self._insert_text, msg) # Alternative for thread safety
-        
         try:
             self.textbox.configure(state="normal")
             self.textbox.insert("end", msg + "\n")
-            self.textbox.see("end") 
+            self.textbox.see("end")
             self.textbox.configure(state="disabled")
         except Exception as e:
             # Fallback if textbox operations fail (e.g., widget destroyed)
-            print(f"Error writing to GUI log textbox: {e}. Message: {msg}")
+            print(f"Error writing to GUI log textbox from _insert_text: {e}. Message: {msg}")
+
+    def emit(self, record):
+        msg = self.format(record)
+        # If textbox is not set up yet, or has been destroyed, we can't use 'after'.
+        # The check for existence will happen in the scheduled call.
+        if self.textbox:
+            try:
+                # Schedule the UI update on the main thread to ensure thread safety
+                self.textbox.after(0, self._insert_text, msg)
+            except Exception as e:
+                # This might happen if the widget is destroyed and we try to call 'after' on it.
+                print(f"Error scheduling log message: {e}. Message: {msg}")
+        else:
+            print(f"GUILogHandler: Textbox not available. Log: {msg}")
 
 
 if __name__ == '__main__':

@@ -51,7 +51,7 @@ def run(context):
             if hasattr(cc, 'PRED_RESULT_REGION_REL_M2'):
                 if core_utils.take_screenshot(
                     context,
-                    region_relative=cc.PRED_RESULT_REGION_REL_M2,
+                    relative_region=cc.PRED_RESULT_REGION_REL_M2,
                     window=nikke_window, # take_screenshot 当前仍需要 window 参数
                     filename=temp_result_path
                 ):
