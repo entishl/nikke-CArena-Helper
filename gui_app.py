@@ -121,7 +121,7 @@ class SettingsWindow(ctk.CTkToplevel):
         ctk.CTkLabel(main_frame, text="脚本启动延迟(秒):").grid(row=0, column=0, padx=5, pady=5, sticky="w")
         info_icon0 = ctk.CTkLabel(main_frame, text=" (?)", text_color="gray", cursor="hand2")
         info_icon0.grid(row=0, column=1, padx=(0, 5), pady=5, sticky="w")
-        Tooltip(info_icon0, "从点击“启动脚本”到激活游戏的等待时间\n用于给你时间进入正确的界面\n默认值5")
+        Tooltip(info_icon0, "从点击“启动脚本”到激活游戏的等待时间\n用于给你时间进入正确的界面\n如果你习惯先进入正确界面再启动可以设置得很小\n默认值5")
         self.delay_gui_startup_entry = ctk.CTkEntry(main_frame, textvariable=self.delay_gui_startup_var, width=80)
         self.delay_gui_startup_entry.grid(row=0, column=2, padx=5, pady=5, sticky="e")
 

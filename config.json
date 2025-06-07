@@ -11,8 +11,8 @@
   "delay_settings": {
     "gui_startup": 5.0,
     "after_player_entry": 1.5,
-    "after_team_click": 0.1,
-    "after_click_player_details": 2.5
+    "after_team_click": 0.5,
+    "after_click_player_details": 3.0
   },
   "mode_specific_defaults": {
     "mode1": {
