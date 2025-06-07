@@ -152,7 +152,7 @@ def run(context):
                     final_images_to_stitch,
                     final_output_path,
                     spacing=getattr(context.mode_config, 'image_spacing', 20), # 与模式1对齐，默认20
-                    background_color=bg_color_tuple
+                    bg_color=bg_color_tuple
                 ):
                     logger.info(f"模式2: 结果已保存到 {final_output_path}")
                 else:

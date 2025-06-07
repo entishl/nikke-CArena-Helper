@@ -107,7 +107,7 @@ def run(context):
                 images_to_stitch,
                 final_output_path,
                 spacing=getattr(context.mode_config, 'image_spacing', 50), # 使用 mode_config 中的间距
-                background_color=context.shared.get_stitch_background_color() # 从共享上下文中获取背景色
+                bg_color=context.shared.get_stitch_background_color() # 从共享上下文中获取背景色
             )
             logger.info(f"模式3: 结果已保存到 {final_output_path}")
         elif len(images_to_stitch) == 1:
