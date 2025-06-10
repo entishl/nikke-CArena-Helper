@@ -524,8 +524,8 @@ class NikkeGuiApp(ctk.CTk):
         self.shortcut_info_label = ctk.CTkLabel(status_frame, text="可随时按 Ctrl +1 强制中止脚本", anchor="w", text_color="gray")
         self.shortcut_info_label.pack(pady=2, fill="x")
         
-        self.retry_nikke_button = ctk.CTkButton(status_frame, text="重试连接NIKKE", command=lambda: self.check_nikke_window_status(from_retry=True), width=120)
-        # self.retry_nikke_button initially not packed
+        self.retry_nikke_button = ctk.CTkButton(status_frame, text="重试连接 NIKKE", command=lambda: self.check_nikke_window_status(from_retry=True), width=120)
+        self.retry_nikke_button.pack(pady=(5,0), fill="x") # Always pack the button
 
         button_frame = ctk.CTkFrame(self.control_area, fg_color="transparent")
         button_frame.grid(row=0, column=1, sticky="e")
@@ -779,7 +779,7 @@ class NikkeGuiApp(ctk.CTk):
         if not from_retry and self.app_context and hasattr(self.app_context, 'shared') and self.app_context.shared.nikke_window:
             _check_and_warn_aspect_ratio(self.app_context.shared.nikke_window) # Check ratio
             self.nikke_window_status_label.configure(text="NIKKE 窗口: 已连接", text_color="green")
-            self.retry_nikke_button.pack_forget()
+            # self.retry_nikke_button.pack_forget() # Keep button visible
             if self.start_button: self.start_button.configure(state="normal")
             return True
 
@@ -799,12 +799,12 @@ class NikkeGuiApp(ctk.CTk):
                 if hasattr(self.app_context.shared, 'nikke_window') and self.app_context.shared.nikke_window:
                     _check_and_warn_aspect_ratio(self.app_context.shared.nikke_window) # Check ratio
                     self.nikke_window_status_label.configure(text="NIKKE 窗口: 已连接", text_color="green")
-                    self.retry_nikke_button.pack_forget()
+                    # self.retry_nikke_button.pack_forget() # Keep button visible
                     if self.start_button: self.start_button.configure(state="normal")
                     return True
                 else:
                     self.nikke_window_status_label.configure(text="NIKKE 窗口: 未找到! 请确保游戏运行且未最小化。", text_color="red")
-                    self.retry_nikke_button.pack(pady=(5,0), fill="x")
+                    # self.retry_nikke_button.pack(pady=(5,0), fill="x") # Button is always visible
                     if self.start_button: self.start_button.configure(state="disabled")
                     return False
             except Exception as e:
@@ -817,7 +817,7 @@ class NikkeGuiApp(ctk.CTk):
                     logger_for_error.error(f"Error checking NIKKE window: {e}")
                 else: # Fallback print
                     print(f"Error checking NIKKE window: {e}")
-                self.retry_nikke_button.pack(pady=(5,0), fill="x")
+                # self.retry_nikke_button.pack(pady=(5,0), fill="x") # Button is always visible
                 if self.start_button: self.start_button.configure(state="disabled")
                 return False
         return False
@@ -861,7 +861,7 @@ class NikkeGuiApp(ctk.CTk):
         self.status_label.configure(text=f"正在启动模式 {self.current_mode_value}...")
         self.start_button.configure(state="disabled")
         self.stop_button.configure(state="normal")
-        self.retry_nikke_button.pack_forget() 
+        # self.retry_nikke_button.pack_forget() # Keep button visible
 
         self.stop_event.clear()
         if self.app_context and hasattr(self.app_context, 'shared'):
