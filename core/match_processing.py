@@ -115,7 +115,7 @@ def process_match_flow(
         return None
         
     if player1_stitched_image_path:
-        images_to_stitch_horizontally.append(player1_stitched_image_path)
+        images_to_stitch_horizontally.insert(0, player1_stitched_image_path) # 插入到列表开头，确保P1在赛果图左边
         logger.info(f"  ({match_name}) 玩家1数据收集完成: {player1_stitched_image_path}")
     else:
         # player_processing.collect_player_data 内部会设置 final_message

@@ -86,6 +86,7 @@ def run(context):
         
         match_specific_entry_coord_rel = None
         match_specific_second_entry_coord_rel = None
+        success = False # 初始化 success 标志
 
         if match_name_std.startswith("8in4"):
             match_specific_entry_coord_rel = cc.R_M8_MATCH_8IN4_ENTRIES_REL.get(m8_match_key)
@@ -101,55 +102,55 @@ def run(context):
             logger.error(f"Mode8: 未能确定比赛 {match_name_std} (key: {m8_match_key}) 的入口坐标。跳过此比赛。")
             continue
 
-            # --- 点击比赛入口 ---
-            logger.info(f"Mode8: 点击比赛 '{match_name_std}' 入口 at {match_specific_entry_coord_rel}")
-            if not core_utils.click_coordinates(context, match_specific_entry_coord_rel, nikke_window):
-                logger.error(f"Mode8: 点击比赛 '{match_name_std}' 入口失败。跳过此比赛。")
+        # --- 点击比赛入口 ---
+        logger.info(f"Mode8: 点击比赛 '{match_name_std}' 入口 at {match_specific_entry_coord_rel}")
+        if not core_utils.click_coordinates(context, match_specific_entry_coord_rel, nikke_window):
+            logger.error(f"Mode8: 点击比赛 '{match_name_std}' 入口失败。跳过此比赛。")
+            continue
+        
+        # 使用新的延迟常量 R_M8_DELAY_AFTER_MATCH_ENTRY (字典)
+        delay_after_entry = cc.R_M8_DELAY_AFTER_MATCH_ENTRY.get(m8_match_key, cc.R_DELAY_DEFAULT_AFTER_MATCH_ENTRY)
+        logger.info(f"Mode8: 等待 {delay_after_entry} 秒...")
+        time.sleep(delay_after_entry)
+        if core_utils.check_stop_signal(context): return
+
+        if match_specific_second_entry_coord_rel:
+            logger.info(f"Mode8: 点击比赛 '{match_name_std}' 第二入口 at {match_specific_second_entry_coord_rel}")
+            if not core_utils.click_coordinates(context, match_specific_second_entry_coord_rel, nikke_window):
+                logger.error(f"Mode8: 点击比赛 '{match_name_std}' 第二入口失败。跳过此比赛。")
                 continue
-            
-            # 使用新的延迟常量 R_M8_DELAY_AFTER_MATCH_ENTRY (字典)
-            delay_after_entry = cc.R_M8_DELAY_AFTER_MATCH_ENTRY.get(m8_match_key, cc.R_DELAY_DEFAULT_AFTER_MATCH_ENTRY)
-            logger.info(f"Mode8: 等待 {delay_after_entry} 秒...")
-            time.sleep(delay_after_entry)
+            # 使用新的延迟常量 R_M8_DELAY_AFTER_SECOND_MATCH_ENTRY
+            delay_after_second_entry = cc.R_M8_DELAY_AFTER_SECOND_MATCH_ENTRY if match_name_std == "4in2_2" else 0
+            if delay_after_second_entry > 0:
+                logger.info(f"Mode8: 等待 {delay_after_second_entry} 秒...")
+                time.sleep(delay_after_second_entry)
             if core_utils.check_stop_signal(context): return
 
-            if match_specific_second_entry_coord_rel:
-                logger.info(f"Mode8: 点击比赛 '{match_name_std}' 第二入口 at {match_specific_second_entry_coord_rel}")
-                if not core_utils.click_coordinates(context, match_specific_second_entry_coord_rel, nikke_window):
-                    logger.error(f"Mode8: 点击比赛 '{match_name_std}' 第二入口失败。跳过此比赛。")
-                    continue
-                # 使用新的延迟常量 R_M8_DELAY_AFTER_SECOND_MATCH_ENTRY
-                delay_after_second_entry = cc.R_M8_DELAY_AFTER_SECOND_MATCH_ENTRY if match_name_std == "4in2_2" else 0
-                if delay_after_second_entry > 0:
-                    logger.info(f"Mode8: 等待 {delay_after_second_entry} 秒...")
-                    time.sleep(delay_after_second_entry)
-                if core_utils.check_stop_signal(context): return
+        # --- 调用核心比赛处理流程 ---
+        # 从配置加载延迟并更新 player_info_regions_config
+        delay_config = getattr(context.shared, 'delay_config', {})
+        delay_value = delay_config.get('after_click_player_details', 2.5) # 使用默认值2.5
+        
+        player_info_config = copy.deepcopy(cc.R_PLAYER_INFO_CONFIG_SEQ)
+        for item in player_info_config:
+            if item.get('name') == 'click_detail_info_2':
+                item['delay_after'] = delay_value
+                logger.info(f"Mode8: 已将 'click_detail_info_2' 的延迟更新为 {delay_value} 秒。")
+                break
 
-            # --- 调用核心比赛处理流程 ---
-            # 从配置加载延迟并更新 player_info_regions_config
-            delay_config = getattr(context.shared, 'delay_config', {})
-            delay_value = delay_config.get('after_click_player_details', 2.5) # 使用默认值2.5
-            
-            player_info_config = copy.deepcopy(cc.R_PLAYER_INFO_CONFIG_SEQ)
-            for item in player_info_config:
-                if item.get('name') == 'click_detail_info_2':
-                    item['delay_after'] = delay_value
-                    logger.info(f"Mode8: 已将 'click_detail_info_2' 的延迟更新为 {delay_value} 秒。")
-                    break
-
-            success = match_processing.process_match_flow(
-                context=context,
-                file_prefix=f"{file_prefix_base}_{match_name_std.replace(' ', '_')}",
-                match_name=match_name_std, # Use standard name for file naming consistency
-                p1_entry_rel=cc.R_PLAYER1_ENTRY_REL,
-                p2_entry_rel=cc.R_PLAYER2_ENTRY_REL,
-                result_region_rel=cc.R_RESULT_REGION_REL,
-                close_result_rel=cc.R_CLOSE_RESULT_REL,
-                player_info_regions_config=player_info_config, # 使用更新后的配置
-                team_button_coords_rel=cc.R_TEAM_BUTTONS_REL, # 直接使用通用常量
-                team_screenshot_region_rel=cc.R_TEAM_SCREENSHOT_REGION_REL, # 直接使用通用常量
-                close_player_view_coord_rel=cc.R_CLOSE_TEAMVIEW_REL # 或 R_EXIT_PLAYER_VIEW_REL，它们是等效的
-            )
+        success = match_processing.process_match_flow(
+            context=context,
+            file_prefix=f"{file_prefix_base}_{match_name_std.replace(' ', '_')}",
+            match_name=match_name_std, # Use standard name for file naming consistency
+            p1_entry_rel=cc.R_PLAYER1_ENTRY_REL,
+            p2_entry_rel=cc.R_PLAYER2_ENTRY_REL,
+            result_region_rel=cc.R_RESULT_REGION_REL,
+            close_result_rel=cc.R_CLOSE_RESULT_REL,
+            player_info_regions_config=player_info_config, # 使用更新后的配置
+            team_button_coords_rel=cc.R_TEAM_BUTTONS_REL, # 直接使用通用常量
+            team_screenshot_region_rel=cc.R_TEAM_SCREENSHOT_REGION_REL, # 直接使用通用常量
+            close_player_view_coord_rel=cc.R_CLOSE_TEAMVIEW_REL # 或 R_EXIT_PLAYER_VIEW_REL，它们是等效的
+        )
 
         if success:
             completed_matches_overall += 1
