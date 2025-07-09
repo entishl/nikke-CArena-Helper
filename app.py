@@ -1,7 +1,6 @@
 import sys
 import os
 import time
-from datetime import datetime
 import logging
 import shutil
 import importlib
@@ -106,7 +105,6 @@ class ModeSpecificConfig:
 
     def _load_mode6_config(self, mode_defaults):
         self.m6_group_prefix = mode_defaults.get('output_group_prefix', 'Group')
-        self.m6_output_subdir = mode_defaults.get('output_subdir', None) # 读取子目录配置
         self.m6_start_group = mode_defaults.get('start_group_index', 0)
         self.m6_end_group = mode_defaults.get('end_group_index', 7)
 
@@ -167,45 +165,43 @@ class ModeSpecificConfig:
             # else: mode_number is None or invalid, or no specific config for it. Common attrs are set.
 
     def finalize_paths_for_mode9(self, base_output_dir, logger):
-        success = True
-        # 确定输入目录
+        # base_temp_dir is not used in the original logic from app.py for these paths
+        # logger is needed for error messages if input is invalid
+        success = True # Flag to indicate if path setup was successful
+        # base_temp_dir is not used in the original logic from app.py for these paths
+        # logger is needed for error messages if input is invalid
+        success = True # Flag to indicate if path setup was successful
         if self.m9_input_dir_relative:
-            self.m9_actual_input_dir = os.path.join(base_output_dir, self.m9_input_subdir) if self.m9_input_subdir else base_output_dir
+            if self.m9_input_subdir:
+                self.m9_actual_input_dir = os.path.join(base_output_dir, self.m9_input_subdir)
+            else:
+                self.m9_actual_input_dir = base_output_dir
         else:
+            # 如果不是相对路径，则优先尝试从配置的绝对路径读取
             configured_abs_dir = self.m9_configured_absolute_input_dir
             if configured_abs_dir and os.path.isdir(configured_abs_dir):
                 logger.info(f"模式9: 使用配置文件中指定的绝对输入路径: '{configured_abs_dir}'")
                 self.m9_actual_input_dir = configured_abs_dir
             else:
-                if configured_abs_dir:
+                if configured_abs_dir: # 配置了但路径无效
                     logger.warning(f"模式9: 配置文件中的绝对输入路径 '{configured_abs_dir}' 无效或不是一个目录。")
-                user_input_abs_dir = input("模式9配置为使用绝对输入路径。请输入完整输入目录路径: ").strip()
+                
+                # 提示用户输入绝对路径
+                user_input_abs_dir = input(f"模式9配置为使用绝对输入路径。请输入完整输入目录路径: ").strip()
                 if not user_input_abs_dir or not os.path.isdir(user_input_abs_dir):
                     logger.error(f"模式9的用户输入绝对路径无效或未提供: '{user_input_abs_dir}'。")
-                    self.m9_actual_input_dir = None
+                    self.m9_actual_input_dir = None # 明确设为 None
                     success = False
                 else:
                     self.m9_actual_input_dir = user_input_abs_dir
-
-        # 如果输入路径有效，则生成动态输出路径
-        if success and self.m9_actual_input_dir:
-            # 生成基于当前时间的 YYYYMMDD_HHMMSS 格式的时间戳
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            
-            # 新的输出子目录名和ZIP文件名都使用此时间戳
-            dynamic_name = timestamp
-            
-            # WebP输出目录路径: output/YYYYMMDD_HHMMSS
-            self.m9_actual_output_webp_dir = os.path.join(base_output_dir, dynamic_name)
-            
-            # ZIP文件路径: output/YYYYMMDD_HHMMSS.zip
-            self.m9_actual_zip_filepath = os.path.join(base_output_dir, f"{dynamic_name}.zip")
-        else:
+        
+        if success: # 只有在输入路径有效时才继续设置其他路径
+            self.m9_actual_output_webp_dir = os.path.join(base_output_dir, self.m9_output_webp_subdir)
+            self.m9_actual_zip_filepath = os.path.join(base_output_dir, self.m9_zip_filename)
+        else: # 如果输入路径无效，其他路径也应设为 None 或保持未设置状态
             self.m9_actual_output_webp_dir = None
             self.m9_actual_zip_filepath = None
-            if not self.m9_actual_input_dir:
-                success = False # 确保如果输入目录最终为None，则状态为失败
-
+            
         return success
 
 import sys # 确保 sys 已导入
