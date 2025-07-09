@@ -2,6 +2,12 @@
 __pycache__/
 *.py[cod]
 *$py.class
+.roomodes/
+.roomodes
+.cursor/
+.roo/
+.taskmaster/
+.windsurfrules
 
 # C extensions
 *.so
