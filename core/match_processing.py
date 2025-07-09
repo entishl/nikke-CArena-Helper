@@ -15,12 +15,11 @@ def process_match_flow(
     p2_entry_rel: tuple,
     result_region_rel: tuple,
     close_result_rel: tuple,
-    # 根据 c_arena_reviewer.py 的 process_single_match，可能还需要其他配置
     player_info_regions_config: list, # 从主配置传入
     team_button_coords_rel: list,     # 从主配置传入
     team_screenshot_region_rel: tuple,# 从主配置传入
     close_player_view_coord_rel: tuple | None, # 从主配置传入
-    # 可以在这里添加更多针对单场比赛特有的延迟或配置
+    output_dir: str = None, # 新增：允许指定输出目录
     delay_after_result_screenshot: float = core_constants.DEFAULT_DELAY_AFTER_RESULT_SCREENSHOT,
     delay_after_player_collection: float = core_constants.DEFAULT_DELAY_AFTER_PLAYER_COLLECTION,
     delay_after_close_result: float = core_constants.DEFAULT_DELAY_AFTER_CLOSE_RESULT
@@ -49,7 +48,8 @@ def process_match_flow(
     """
     logger = getattr(context.shared, 'logger', logging)
     nikke_window = getattr(context.shared, 'nikke_window', None)
-    base_output_dir = getattr(context.shared, 'base_output_dir', './match_outputs')
+    # 如果提供了 output_dir，则使用它；否则，回退到 context.shared.base_output_dir
+    final_output_dir = output_dir if output_dir else getattr(context.shared, 'base_output_dir', './match_outputs')
     base_temp_dir = getattr(context.shared, 'base_temp_dir', './temp_match_data') # 用于存放赛果和玩家拼接图
 
     if not nikke_window:
@@ -182,10 +182,10 @@ def process_match_flow(
 
     # 最终拼接的图片保存到基于 context.shared.base_output_dir 的路径
     final_stitched_filename = f"{file_prefix}_overview.png"
-    final_stitched_path = os.path.join(base_output_dir, final_stitched_filename)
+    final_stitched_path = os.path.join(final_output_dir, final_stitched_filename)
     
-    # 确保 base_output_dir 存在
-    os.makedirs(base_output_dir, exist_ok=True)
+    # 确保 final_output_dir 存在
+    os.makedirs(final_output_dir, exist_ok=True)
 
     logger.info(f"  ({match_name}) 开始横向拼接 {len(images_to_stitch_horizontally)} 张图片到 {final_stitched_path}...")
     

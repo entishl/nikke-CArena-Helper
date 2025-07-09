@@ -159,11 +159,19 @@ def run(context):
                     logger.info(f"Mode6: 已将 'click_detail_info_2' 的延迟更新为 {delay_value} 秒。")
                     break
 
+            # --- 准备输出目录 ---
+            mode_output_dir = context.shared.base_output_dir
+            if hasattr(mode_config, 'm6_output_subdir') and mode_config.m6_output_subdir:
+                mode_output_dir = os.path.join(mode_output_dir, mode_config.m6_output_subdir)
+                os.makedirs(mode_output_dir, exist_ok=True)
+                logger.info(f"Mode6: 使用特定输出子目录: {mode_output_dir}")
+
             # 直接使用常量，移除 getattr
             success = match_processing.process_match_flow(
                 context=context,
                 file_prefix=f"{current_group_file_prefix}_{match_name.replace(' ', '_')}", # 更具体的文件前缀
                 match_name=match_name,
+                output_dir=mode_output_dir, # 传递定制的输出目录
                 p1_entry_rel=cc.R_PLAYER1_ENTRY_REL,
                 p2_entry_rel=cc.R_PLAYER2_ENTRY_REL,
                 result_region_rel=cc.R_RESULT_REGION_REL,

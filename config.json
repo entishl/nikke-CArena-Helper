@@ -51,6 +51,7 @@
     },
     "mode6": {
       "output_group_prefix": "Group",
+      "output_subdir": "mode_6_64in8",
       "start_group_index": 0,
       "end_group_index": 7
     },
