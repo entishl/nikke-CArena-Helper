@@ -1,5 +1,6 @@
 from core import utils as core_utils
 import os
+import datetime
 from core import player_processing
 # constants 可以通过 context.shared.constants 访问，或直接导入
 # from core import constants as cc
@@ -60,7 +61,8 @@ def run(context):
         player1_name_for_file = getattr(mode_config, 'm1_player1_name', 'P1').replace(' ', '_')
         player2_name_for_file = getattr(mode_config, 'm1_player2_name', 'P2').replace(' ', '_')
         
-        final_output_filename = f"{base_name}_{player1_name_for_file}_vs_{player2_name_for_file}{suffix}.png"
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        final_output_filename = f"{base_name}_{player1_name_for_file}_vs_{player2_name_for_file}{suffix}_{timestamp}.png"
         
         # 使用新的辅助函数获取或创建模式输出子目录
         output_dir_for_mode1 = core_utils.get_or_create_mode_output_subdir(context, 1, "predictions")

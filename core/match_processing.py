@@ -2,6 +2,7 @@
 import os
 import time
 import logging
+import datetime
 
 from .utils import click_coordinates, take_screenshot, stitch_images_horizontally, check_stop_signal # stitch_images_horizontally 稍后添加
 from .player_processing import collect_player_data
@@ -76,7 +77,8 @@ def process_match_flow(
         logger.info(f"操作在截图赛果前被取消 ({match_name})。")
         return None
     
-    result_screenshot_filename = f"{file_prefix}_result.png"
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    result_screenshot_filename = f"{file_prefix}_result_{timestamp}.png"
     result_screenshot_path = os.path.join(match_temp_dir, result_screenshot_filename)
     logger.info(f"  ({match_name}) 截取赛果图: {result_screenshot_path} (区域: {result_region_rel})")
     
@@ -181,7 +183,8 @@ def process_match_flow(
         return None
 
     # 最终拼接的图片保存到基于 context.shared.base_output_dir 的路径
-    final_stitched_filename = f"{file_prefix}_overview.png"
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    final_stitched_filename = f"{file_prefix}_overview_{timestamp}.png"
     final_stitched_path = os.path.join(base_output_dir, final_stitched_filename)
     
     # 确保 base_output_dir 存在

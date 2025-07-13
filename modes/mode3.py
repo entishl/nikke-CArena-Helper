@@ -1,5 +1,6 @@
 import os # 确保导入 os 模块
 import shutil # 用于复制文件
+import datetime
 from core import utils as core_utils
 from core import player_processing
 # constants 可以通过 context.shared.constants 访问，或直接导入
@@ -40,7 +41,8 @@ def run(context):
         vote_screenshot_path = None
         if getattr(context.mode_config, 'm3_include_vote', False):
             logger.info("模式3: 尝试截取民意投票区域...")
-            vote_temp_filename = "m3_people_vote.png" # 临时文件名
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            vote_temp_filename = f"m3_people_vote_{timestamp}.png" # 临时文件名
             # 路径应基于 context.shared.base_temp_dir
             # 确保 player_processing.collect_player_data 使用的临时文件不会冲突
             # collect_player_data 内部会创建如 m3_p1/player_info_xxx.png 的文件
@@ -80,7 +82,8 @@ def run(context):
         # 拼接
         base_name = getattr(context.mode_config, 'output_filename_prefix', 'NCA')
         suffix = getattr(context.mode_config, 'm3_output_suffix', '_counter_save') # 使用 mode_config 中的后缀
-        final_output_filename = f"{base_name}{suffix}.png"
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        final_output_filename = f"{base_name}{suffix}_{timestamp}.png"
 
         # 使用 core_utils 中的辅助函数获取或创建模式输出子目录
         # mode_number for mode3 is 3. subdir_name is "counter_saves".

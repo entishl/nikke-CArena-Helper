@@ -3,8 +3,10 @@
 import os
 import time
 import logging # 新增 logging
+import datetime # 新增 datetime
+
 # pyautogui 和 PIL.Image 已在骨架中，但如果 utils 不再导出它们，则可能需要在这里直接导入
-from PIL import Image 
+from PIL import Image
 
 # 从 core.utils 导入必要的函数
 from .utils import click_coordinates, take_screenshot, stitch_images_vertically, check_stop_signal
@@ -102,7 +104,8 @@ def collect_player_data(
                 logger.warning(f"    配置项 {region_name} 缺少 'region_rel'，跳过截图。")
                 continue
 
-            screenshot_filename = f"{temp_file_prefix}_{region_name}.png"
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            screenshot_filename = f"{temp_file_prefix}_{region_name}_{timestamp}.png"
             screenshot_path = os.path.join(current_player_temp_dir, screenshot_filename) # 使用新的临时目录
             logger.info(f"    截图 '{region_name}' 到 {screenshot_path} (区域: {region_rel})")
 
@@ -155,7 +158,8 @@ def collect_player_data(
             logger.info(f"操作在点击队伍 {team_num} 后被取消 ({temp_file_prefix})。")
             return None
 
-        team_screenshot_filename = f"{temp_file_prefix}_team_{team_num}.png"
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        team_screenshot_filename = f"{temp_file_prefix}_team_{team_num}_{timestamp}.png"
         team_screenshot_path = os.path.join(current_player_temp_dir, team_screenshot_filename) # 使用新的临时目录
         logger.info(f"    截图队伍 {team_num} 到 {team_screenshot_path} (区域: {team_screenshot_region_rel})")
 
@@ -197,7 +201,8 @@ def collect_player_data(
                 time.sleep(delay_after_close_view)
         return None
 
-    stitched_image_filename = f"{temp_file_prefix}_stitched.png"
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    stitched_image_filename = f"{temp_file_prefix}_stitched_{timestamp}.png"
     # 拼接后的图片也放在特定玩家的临时目录中，或者可以考虑放在 base_temp_dir 的上一级或 output_dir
     stitched_image_path = os.path.join(current_player_temp_dir, stitched_image_filename)
     logger.info(f"  开始垂直拼接 {len(all_player_screenshots)} 张图片到 {stitched_image_path}...")

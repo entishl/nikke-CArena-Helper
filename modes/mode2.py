@@ -1,4 +1,5 @@
 import os # 确保导入 os 模块
+import datetime
 from core import utils as core_utils
 from core import player_processing
 # constants 可以通过 context.shared.constants 访问，或直接导入
@@ -45,7 +46,8 @@ def run(context):
             logger.info("模式2: 准备截取赛果图...")
             mode2_temp_dir = os.path.join(context.shared.base_temp_dir, "mode2_temp")
             os.makedirs(mode2_temp_dir, exist_ok=True)
-            result_image_filename = "m2_result_temp.png" # 临时文件名
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            result_image_filename = f"m2_result_temp_{timestamp}.png" # 临时文件名
             temp_result_path = os.path.join(mode2_temp_dir, result_image_filename)
 
             if hasattr(cc, 'PRED_RESULT_REGION_REL_M2'):
@@ -87,7 +89,8 @@ def run(context):
         # 拼接
         base_name = getattr(context.mode_config, 'output_filename_prefix', 'NCA')
         suffix = getattr(context.mode_config, 'm2_output_suffix', '_review') # 使用 mode_config 中的后缀
-        final_output_filename = f"{base_name}{suffix}.png"
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        final_output_filename = f"{base_name}{suffix}_{timestamp}.png"
         
         # 使用 core_utils.get_or_create_mode_output_subdir 来获取或创建输出子目录
         # output_subfolder_basename = "reviews" # 基础名称
