@@ -68,7 +68,7 @@
       "zip_filename": "archive.zip",
       "webp_quality": 85,
       "delete_originals_after_webp": false,
-      "delete_webp_after_zip": true
+      "delete_webp_after_zip": false
     }
   },
   "modes_meta": [
