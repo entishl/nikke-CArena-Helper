@@ -8,8 +8,9 @@ import os # For path joining
 import ctypes # For admin check
 import sys # For exiting
 import json # 新增：用于保存配置
-
-# Function to check for admin rights and exit if not granted
+import subprocess # 新增：用于运行更新脚本
+ 
+ # Function to check for admin rights and exit if not granted
 def check_admin_and_exit_if_not():
     try:
         is_admin = ctypes.windll.shell32.IsUserAnAdmin()
@@ -39,6 +40,7 @@ try:
         # stop_script_callback # This might be handled differently or passed
     )
     from core.utils import get_asset_path, activate_nikke_window_if_needed, get_base_path # AppContext removed from here, activate_nikke_window_if_needed added
+    from core.updater import Updater # 导入 Updater
     # APP_TITLE will be loaded from app_context.shared.app_config or a default if not found
     # MODE_CONFIGS will be replaced by app_context.shared.available_modes
     from core.constants import APP_TITLE # APP_TITLE can still be a fallback or defined here if not in config
@@ -334,8 +336,150 @@ class NikkeGuiApp(ctk.CTk):
         self.create_widgets() # Create widgets before checking status that updates them
 
         self.check_nikke_window_status()
+        self.after(1000, self._start_update_check) # 1秒后启动更新检查
 
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
+
+    def _start_update_check(self):
+        update_thread = threading.Thread(target=self._check_for_updates_thread, daemon=True)
+        update_thread.start()
+
+    def _check_for_updates_thread(self):
+        """在后台线程中检查更新。"""
+        if not self.app_context:
+            return
+        
+        updater = Updater(self.app_context)
+        update_info = updater.check_for_updates()
+
+        if update_info:
+            # 使用 self.after 在主线程中调用对话框
+            self.after(0, self._show_update_dialog, update_info)
+
+    def _show_update_dialog(self, update_info):
+        """在主线程中显示更新对话框。"""
+        version = update_info.get("version")
+        notes = update_info.get("notes", "没有提供更新日志。")
+        
+        message = (
+            f"发现新版本: {version}\n"
+            f"当前版本: {self.app_context.shared.app_config.get('global_settings', {}).get('app_version', 'N/A')}\n\n"
+            f"更新日志:\n{notes}\n\n"
+            "是否要立即下载更新？"
+        )
+        
+        # MB_YESNO = 0x00000004, MB_ICONINFORMATION = 0x00000040
+        result = ctypes.windll.user32.MessageBoxW(self.winfo_id(), message, "更新提示", 0x00000004 | 0x00000040)
+        
+        # IDYES = 6, IDNO = 7
+        if result == 6: # 用户点击了 "Yes"
+            self.app_context.shared.logger.info(f"用户同意更新到版本 {version}。")
+            self._start_download(update_info)
+        else:
+            self.app_context.shared.logger.info("用户拒绝了本次更新。")
+
+    def _start_download(self, update_info):
+        self.status_label.configure(text="正在准备下载...", text_color="orange")
+        self.progress_bar.pack(pady=(5,0), fill="x")
+        self.progress_bar.set(0)
+
+        download_thread = threading.Thread(target=self._download_thread, args=(update_info,), daemon=True)
+        download_thread.start()
+
+    def _download_thread(self, update_info):
+        download_url = update_info.get("download_url")
+        if not download_url:
+            self.after(0, self.status_label.configure, {"text": "下载失败：无效的下载链接。", "text_color": "red"})
+            return
+
+        temp_dir = self.app_context.shared.base_temp_dir
+        os.makedirs(temp_dir, exist_ok=True)
+        filename = os.path.basename(download_url)
+        save_path = os.path.join(temp_dir, filename)
+
+        updater = Updater(self.app_context)
+        success = updater.download_update(download_url, save_path, self._update_download_progress)
+
+        self.after(0, self._on_download_finished, success, save_path)
+
+    def _update_download_progress(self, progress):
+        # This method is called from the download thread, so we use 'after' to update the GUI
+        self.after(0, self.progress_bar.set, progress / 100)
+        self.after(0, self.status_label.configure, {"text": f"正在下载更新... {progress:.1f}%"})
+
+    def _on_download_finished(self, success, file_path):
+        self.progress_bar.pack_forget()
+        if success:
+            self.status_label.configure(text="下载完成！准备安装...", text_color="green")
+            self._create_and_run_updater_script(file_path)
+        else:
+            self.status_label.configure(text="下载失败，请检查日志。", text_color="red")
+
+    def _create_and_run_updater_script(self, zip_path):
+        """创建并运行用于解压和替换文件的批处理脚本。"""
+        self.app_context.shared.logger.info("正在创建更新脚本...")
+
+        # 确定路径
+        current_dir = os.path.dirname(os.path.abspath(sys.executable if getattr(sys, 'frozen', False) else __file__))
+        executable_name = os.path.basename(sys.executable)
+        temp_dir = self.app_context.shared.base_temp_dir
+        script_path = os.path.join(temp_dir, "update.bat")
+        extract_dir = os.path.join(temp_dir, "extracted")
+
+        # 创建批处理脚本内容
+        script_content = f"""
+@echo off
+echo.
+echo =================================================
+echo   NIKKE CArena Helper 更新程序
+echo =================================================
+echo.
+echo 正在等待主程序退出...
+timeout /t 3 /nobreak > nul
+
+echo.
+echo 正在解压更新文件...
+tar -xf "{zip_path}" -C "{extract_dir}"
+if %errorlevel% neq 0 (
+    echo 解压失败！请手动解压 "{zip_path}" 到 "{current_dir}"
+    pause
+    exit /b 1
+)
+
+echo.
+echo 正在复制新文件...
+robocopy "{extract_dir}" "{current_dir}" /e /move /is /it
+if %errorlevel% geq 8 (
+    echo 文件复制失败！请手动操作。
+    pause
+    exit /b 1
+)
+
+echo.
+echo 正在清理临时文件...
+del "{zip_path}"
+rmdir /s /q "{extract_dir}"
+
+echo.
+echo 更新完成！正在重新启动程序...
+start "" "{os.path.join(current_dir, executable_name)}"
+
+del "%~f0"
+"""
+        try:
+            with open(script_path, "w", encoding="utf-8") as f:
+                f.write(script_content)
+            self.app_context.shared.logger.info(f"更新脚本已创建: {script_path}")
+
+            # 使用 Popen 以分离的进程运行脚本
+            subprocess.Popen([script_path], creationflags=subprocess.CREATE_NEW_CONSOLE)
+            
+            self.app_context.shared.logger.info("更新脚本已启动，主程序即将退出。")
+            self.destroy() # 关闭主程序
+
+        except Exception as e:
+            self.app_context.shared.logger.exception("创建或运行更新脚本时出错:")
+            self.status_label.configure(text="错误：无法启动更新程序。", text_color="red")
 
     def create_widgets(self):
         self.grid_columnconfigure(1, weight=1)
@@ -527,6 +671,10 @@ class NikkeGuiApp(ctk.CTk):
         self.retry_nikke_button = ctk.CTkButton(status_frame, text="重试连接 NIKKE", command=lambda: self.check_nikke_window_status(from_retry=True), width=120)
         self.retry_nikke_button.pack(pady=(5,0), fill="x") # Always pack the button
 
+        self.progress_bar = ctk.CTkProgressBar(status_frame)
+        self.progress_bar.set(0)
+        # self.progress_bar will be packed when needed
+        
         button_frame = ctk.CTkFrame(self.control_area, fg_color="transparent")
         button_frame.grid(row=0, column=1, sticky="e")
 

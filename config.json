@@ -8,6 +8,26 @@
     "log_to_file": false,
     "log_filename": "app_log.log"
   },
+  "update_settings": {
+    "check_on_startup": true,
+    "sources": [
+      {
+        "type": "gitee",
+        "repo": "your_name/your_repo_gitee",
+        "enabled": true
+      },
+      {
+        "type": "github",
+        "repo": "your_name/your_repo_github",
+        "enabled": true
+      },
+      {
+        "type": "custom_server",
+        "url": "https://your.server.com/latest_version.json",
+        "enabled": false
+      }
+    ]
+  },
   "delay_settings": {
     "gui_startup": 5.0,
     "after_player_entry": 1.5,

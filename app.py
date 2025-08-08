@@ -23,7 +23,7 @@ except ImportError:
 
 # --- 全局常量 ---
 APP_NAME = "Nikke Champion Arena Cheerleading Tool"
-APP_VERSION = "2.0.0-alpha" # 示例版本
+# APP_VERSION is now loaded from config.json
 MAIN_TEMP_DIR = "temp_app"
 MAIN_OUTPUT_DIR = "output_app"
 STOP_HOTKEY = "ctrl+1"
@@ -44,7 +44,8 @@ class SharedResources:
         self.final_message = None # 用于模式执行后传递总结信息
         self.is_admin = False # GUI适配：添加is_admin属性
         self.available_modes = [] # GUI适配：存储从config.json加载的模式元数据
-
+        self.update_settings = {} # 新增：持有更新配置
+ 
     def get_stitch_background_color(self):
         """
         从应用配置中获取并解析图像拼接的背景颜色。
@@ -319,7 +320,11 @@ def initialize_app_context(logger):
     context.shared.delay_config = loaded_delays
     logger.info(f"成功加载延迟配置: {context.shared.delay_config}")
 
-    # GUI适配：加载模式元数据
+    # 加载更新设置
+    context.shared.update_settings = app_config_data.get('update_settings', {})
+    logger.info(f"成功加载更新配置: {context.shared.update_settings}")
+ 
+     # GUI适配：加载模式元数据
     if app_config_data and isinstance(app_config_data.get("modes_meta"), list):
         raw_modes_meta = app_config_data["modes_meta"]
         valid_modes = []
@@ -537,7 +542,8 @@ def setup_logging():
     # fh.setFormatter(formatter)
     # logger.addHandler(fh)
     
-    logger.info(f"{APP_NAME} v{APP_VERSION} 日志系统初始化完成。")
+    # 版本号现在从配置中获取，所以日志在 context 初始化后记录
+    logger.info(f"{APP_NAME} 日志系统初始化完成。")
 
 def create_app_directories(logger):
     """创建应用所需的主临时目录和输出目录"""
@@ -600,9 +606,8 @@ def main():
     # 实际的日志配置由 setup_logging 完成，它会配置 AppLogger
     setup_logging() # 配置 AppLogger
     logger = logging.getLogger("AppLogger") # 获取已配置的 logger
-    logger.info(f"正在启动 {APP_NAME} v{APP_VERSION}...")
-
-    # 2. 检查管理员权限 (Windows)
+ 
+     # 2. 检查管理员权限 (Windows)
     if sys.platform == 'win32' and not is_admin():
         logger.error("错误：此脚本需要管理员权限才能在 Windows 上正常运行。")
         ctypes.windll.user32.MessageBoxW(None, "请以管理员身份运行此脚本。", "权限不足", 0x10 | 0x1000)
@@ -613,9 +618,13 @@ def main():
         # 3. 初始化 AppContext
         context = initialize_app_context(logger)
         # logger 现在是 context.shared.logger，后续可以直接使用 context.shared.logger
+        
+        # 在 context 初始化后，我们可以访问配置中的版本号
+        app_version = context.shared.app_config.get("global_settings", {}).get("app_version", "N/A")
+        logger.info(f"正在启动 {APP_NAME} v{app_version}...")
         context.shared.logger.info("应用上下文核心初始化完成。")
-
-        # 4. 设置应用环境 (包括目录创建、窗口激活、热键)
+ 
+         # 4. 设置应用环境 (包括目录创建、窗口激活、热键)
         if not setup_app_environment(context):
             # setup_app_environment 内部会记录具体错误
             # 对于命令行版本，如果窗口查找失败，会提示并退出
