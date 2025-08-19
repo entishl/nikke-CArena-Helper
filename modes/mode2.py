@@ -20,7 +20,7 @@ def run(context):
         # 准备 P1 的参数 (从 cc 或 context.mode_config 获取)
         # 复盘模式通常也需要对手信息，所以我们假设与模式1使用相同的常量
         p1_entry_rel = cc.PRED_PLAYER1_ENTRY_REL_M2 # 使用模式2特定常量
-        # ... 其他参数 (根据 c_arena_predition.py 中模式2的逻辑调整)
+        # ... 其他参数 (根据 c_arena_prediction.py 中模式2的逻辑调整)
 
         player1_stitched_path = player_processing.collect_player_data(
             context,

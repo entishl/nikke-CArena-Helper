@@ -1,5 +1,7 @@
 {
   "global_settings": {
+    "app_display_name": "Nikke Champion Arena Helper",
+    "app_version": "1.0.0",
     "default_output_filename_prefix": "NCA",
     "default_temp_file_prefix": "temp_",
     "default_delete_temp_files_after_run": true,

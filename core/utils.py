@@ -96,7 +96,7 @@ def take_screenshot(context, relative_region: tuple, window: pygetwindow.Win32Wi
     """
     根据相对区域定义和当前窗口尺寸/位置，计算实际屏幕区域并截图保存。
     相对区域格式: (rel_left, rel_top, rel_width, rel_height)
-    (此函数从 _backup/c_arena_predition.py 迁移)
+    (此函数从 _backup/c_arena_prediction.py 迁移)
     """
     logger = getattr(context.shared, 'logger', logging)
     if not all(isinstance(val, (int, float)) for val in relative_region) or len(relative_region) != 4:
@@ -767,10 +767,12 @@ def get_or_create_mode_output_subdir(context, mode_identifier, subdir_basename=N
         return None
 
     if subdir_basename:
-        if str(mode_identifier) not in subdir_basename: # 避免 "mode1_mode1_predictions"
-            final_subdir_name = f"mode{mode_identifier}_{subdir_basename}"
-        else:
+        # 检查 subdir_basename 是否已经包含了 "modeX_" 前缀
+        prefix_to_check = f"mode{mode_identifier}_"
+        if subdir_basename.startswith(prefix_to_check):
             final_subdir_name = subdir_basename
+        else:
+            final_subdir_name = f"{prefix_to_check}{subdir_basename}"
     else:
         final_subdir_name = f"mode{mode_identifier}_output"
 
@@ -911,16 +913,10 @@ def activate_nikke_window_if_needed(context):
 
 def get_base_path():
    """ 获取应用程序的基础路径，用于查找资源文件。"""
-   if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
-       # PyInstaller one-file bundle in temporary _MEIPASS directory
-       # For data files placed next to the executable (like in one-dir),
-       # we need the directory of the executable itself.
-       return os.path.dirname(sys.executable)
-   elif getattr(sys, 'frozen', False):
-       # PyInstaller one-dir bundle or other frozen environment
+   if getattr(sys, 'frozen', False):
+       # PyInstaller bundle
        return os.path.dirname(sys.executable)
    else:
-       # Running as a standard Python script
        # Running as a standard Python script
        # __file__ is core/utils.py, so dirname is core/. We need its parent.
        return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

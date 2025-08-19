@@ -22,7 +22,7 @@ except ImportError:
     core_utils = None # 标记 core_utils 未成功导入
 
 # --- 全局常量 ---
-APP_NAME = "Nikke Champion Arena Cheerleading Tool"
+APP_NAME = "Nikke Champion Arena Helper"
 # APP_VERSION is now loaded from config.json
 MAIN_TEMP_DIR = "temp_app"
 MAIN_OUTPUT_DIR = "output_app"
@@ -169,9 +169,6 @@ class ModeSpecificConfig:
         # base_temp_dir is not used in the original logic from app.py for these paths
         # logger is needed for error messages if input is invalid
         success = True # Flag to indicate if path setup was successful
-        # base_temp_dir is not used in the original logic from app.py for these paths
-        # logger is needed for error messages if input is invalid
-        success = True # Flag to indicate if path setup was successful
         if self.m9_input_dir_relative:
             if self.m9_input_subdir:
                 self.m9_actual_input_dir = os.path.join(base_output_dir, self.m9_input_subdir)
@@ -298,9 +295,9 @@ def initialize_app_context(logger):
     delay_settings_from_config = app_config_data.get('delay_settings', {})
     default_delays = {
         'gui_startup': 5.0,
-        'after_player_entry': 3.0,
-        'after_team_click': 1.5,
-        'after_click_player_details': 2.5 # 新增：确保此项能从配置加载
+        'after_player_entry': 1.5,
+        'after_team_click': 0.5,
+        'after_click_player_details': 3.0
     }
     
     # 从配置加载值，如果缺失则使用默认值
@@ -577,7 +574,7 @@ def cleanup_application(logger):
     logger.info("开始应用清理...")
     try:
         keyboard.remove_all_hotkeys()
-        logger.info("已移除所有全局热key。")
+        logger.info("已移除所有全局热键。")
     except Exception as e:
         logger.warning(f"移除热键时发生错误: {e}")
 

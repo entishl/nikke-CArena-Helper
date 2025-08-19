@@ -21,7 +21,7 @@ def run(context):
         # 准备 P1 的参数
         # 反买存档模式通常也需要对手信息
         p1_entry_rel = cc.M3_PLAYER1_ENTRY_REL
-        # ... 其他参数 (根据 c_arena_predition.py 中模式3的逻辑调整)
+        # ... 其他参数 (根据 c_arena_prediction.py 中模式3的逻辑调整)
 
         player1_stitched_path = player_processing.collect_player_data(
             context,

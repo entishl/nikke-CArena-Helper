@@ -32,7 +32,7 @@ DEFAULT_DELAY_AFTER_PLAYER_COLLECTION = 0.5
 # 注意: 此值与 DEFAULT_DELAY_AFTER_CLOSE_VIEW 相同，但用于不同的上下文 (关闭比赛结果后)。
 DEFAULT_DELAY_AFTER_CLOSE_RESULT = 1.0
 # --- 目标窗口与进程 ---
-APP_TITLE = "冠军竞技场截图工具" # GUI 应用标题
+APP_TITLE = "冠军竞技场辅助工具" # GUI 应用标题
 TARGET_PROCESS_NAME = "nikke.exe"
 POSSIBLE_TARGET_WINDOW_TITLES = ["NIKKE", "勝利女神：妮姬", "胜利女神：新的希望"]
 DEFAULT_TARGET_WINDOW_TITLE_INDEX = 0 # 默认使用列表中的第一个标题
@@ -59,7 +59,7 @@ def _to_rel_region(abs_region_x1y1x2y2, base_w=BASE_WIDTH, base_h=BASE_HEIGHT):
     if rel_h < 0: rel_h = 0
     return (rel_x, rel_y, rel_w, rel_h)
 
-# === Constants from _backup/c_arena_predition.py (大多已转换为相对比例) ===
+# === Constants from _backup/c_arena_prediction.py (大多已转换为相对比例) ===
 # 使用 PRED_ 前缀以区分来源，并与 reviewer 中的常量区分
 
 # 原始绝对坐标 (仅作参考，实际使用下面的相对坐标)
@@ -85,7 +85,7 @@ PRED_TEAM_BUTTONS_REL = [_to_rel_coord(coord) for coord in _PRED_TEAM_COORDS_ABS
 PRED_TEAM_SCREENSHOT_REGION_REL = _to_rel_region(_PRED_SCREENSHOT_REGION_ABS)
 
 # 玩家信息面板的配置 (用于 collect_player_data 的 player_info_regions_config)
-# 这是 c_arena_predition.py 中隐式定义的流程
+# 这是 c_arena_prediction.py 中隐式定义的流程
 PRED_PLAYER_INFO_CONFIG_SEQ = [
     {'type': 'screenshot', 'name': 'info_panel_1', 'region_rel': _to_rel_region(_PRED_PLAYER_INFO_REGION_ABS), 'delay_after': 0.5},
     {'type': 'click', 'name': 'click_detail_info_2', 'coord_rel': _to_rel_coord(_PRED_PLAYER_DETAILINFO_2_ABS), 'delay_after': 2.5},
@@ -103,7 +103,7 @@ PRED_PLAYER2_TEAM_SCREENSHOT_REGION_REL = PRED_TEAM_SCREENSHOT_REGION_REL # 假�
 PRED_PLAYER2_EXIT_PLAYER_VIEW_REL = PRED_EXIT_PLAYER_VIEW_REL # 假设当前 P2 的关闭视图按钮与 P1 完全相同
 
 
-# Mode 2 (复盘模式) 特有坐标 from predition.py
+# Mode 2 (复盘模式) 特有坐标 from prediction.py
 _PRED_PLAYER1_COORD_ABS_M2 = (1540, 1083)
 _PRED_PLAYER2_COORD_ABS_M2 = (2176, 1083)
 _PRED_RESULT_SCREENSHOT_ABS_M2 = (1600, 958, 2109, 1651)
@@ -121,7 +121,7 @@ M2_TEAM_BUTTONS_REL = PRED_TEAM_BUTTONS_REL
 M2_TEAM_SCREENSHOT_REGION_REL = PRED_TEAM_SCREENSHOT_REGION_REL
 M2_EXIT_PLAYER_VIEW_REL = PRED_EXIT_PLAYER_VIEW_REL
 
-# Mode 3 (反买模式) 特有坐标 from predition.py
+# Mode 3 (反买模式) 特有坐标 from prediction.py
 _PRED_PEOPLE_VOTE_REGION_ABS_M3 = (1395, 285, 2433, 1944)
 PRED_PEOPLE_VOTE_REGION_REL_M3 = _to_rel_region(_PRED_PEOPLE_VOTE_REGION_ABS_M3)
 
@@ -346,7 +346,7 @@ R_M9_WEBP_METHOD = 6
 
 # --- 关于 collect_player_data 函数参数与常量使用的说明 ---
 # 1. 玩家信息配置 (`player_info_regions_config`):
-#    - 调用 `collect_player_data` 时，应根据具体场景（原 reviewer 逻辑或原 predition 逻辑）
+#    - 调用 `collect_player_data` 时，应根据具体场景（原 reviewer 逻辑或原 prediction 逻辑）
 #      传入 `R_PLAYER_INFO_CONFIG_SEQ` 或 `PRED_PLAYER_INFO_CONFIG_SEQ`。
 #    - `PRED_PLAYER_INFO_CONFIG_SEQ` 内部的关闭详细信息步骤 (`click_close_detail_info`)
 #      已更新为使用与 `R_PLAYER_INFO_CONFIG_SEQ` 相同的、X值较小的关闭坐标
