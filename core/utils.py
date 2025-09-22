@@ -495,7 +495,7 @@ def create_zip_archive(context, source_dir_to_zip: str, zip_file_path: str):
                 logger.warning(f"删除不完整的 ZIP 文件 '{zip_file_path}' 时失败: {e_remove}")
         return False
 
-def stitch_images_horizontally(context, image_paths: list, output_path: str, alignment: str = 'center', spacing: int = 10, bg_color=(255, 255, 255)):
+def stitch_images_horizontally(context, image_paths: list, output_path: str, alignment: str = 'center', spacing: int = 0, bg_color=(255, 255, 255)):
     """
     将一系列图片从左到右水平拼接成一张图片。
 
