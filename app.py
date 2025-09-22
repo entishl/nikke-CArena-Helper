@@ -434,15 +434,8 @@ def execute_mode(context: AppContext, mode_number: int, mode_specific_inputs: di
             target_group_idx = mode_specific_inputs['target_group_index']
             logger.info(f"Mode 7: Using target_group_index from inputs: {target_group_idx}")
         else: # 命令行回退或默认
-            try:
-                val_str = input(f"请输入目标分组索引 (0-7, 默认为 {target_group_idx}): ").strip()
-                if val_str: # 仅当用户输入了内容时才尝试转换
-                    val_int = int(val_str)
-                    if not (0 <= val_int <= 7):
-                        raise ValueError("索引超出范围，请输入0-7之间的数字。")
-                    target_group_idx = val_int
-            except ValueError as ve:
-                logger.warning(f"无效输入或未输入，将使用默认/已配置的目标分组索引 {target_group_idx}: {ve}")
+            # 移除输入提示，直接使用默认值
+            logger.info(f"Mode 7: No specific input provided, using default/configured target_group_index: {target_group_idx}")
         context.mode_config.m7_target_group = target_group_idx
         logger.info(f"Mode 7: Target group index set to {context.mode_config.m7_target_group}.")
 
