@@ -206,7 +206,7 @@ class NikkeGuiApp(ctk.CTk):
         # Title will be set after app_context is initialized, potentially from config
         # self.title(APP_TITLE) # Fallback title set during import if core.constants.APP_TITLE fails
         self.geometry("1000x700")
-        ctk.set_appearance_mode("System")
+        # ctk.set_appearance_mode("System") # This will be set based on config
         ctk.set_default_color_theme("blue")
 
         self.app_context: AppContext = None
@@ -280,6 +280,21 @@ class NikkeGuiApp(ctk.CTk):
                 'global_settings', {}).get('app_display_name', APP_TITLE)
         self.title(app_title_from_config)
 
+        # Set appearance mode based on config
+        initial_appearance_mode = "System" # Default
+        if hasattr(self.app_context, 'shared') and self.app_context.shared.app_config:
+            initial_appearance_mode = self.app_context.shared.app_config.get(
+                'global_settings', {}).get('appearance_mode', 'System')
+        
+        # Validate the mode from config
+        valid_modes = ["Light", "Dark", "System"]
+        if initial_appearance_mode not in valid_modes:
+            print(f"Warning: Invalid appearance_mode '{initial_appearance_mode}' in config. Falling back to 'System'.")
+            initial_appearance_mode = "System"
+
+        ctk.set_appearance_mode(initial_appearance_mode)
+
+
         self.log_textbox = None
         self.current_asset_image_name = None # Store the name of the current image
         self.show_image_var = ctk.BooleanVar(value=True) # NEW: Variable for image visibility switch
@@ -347,7 +362,7 @@ class NikkeGuiApp(ctk.CTk):
         # --- Sidebar Frame ---
         self.sidebar_frame = ctk.CTkFrame(self, width=250, corner_radius=0) # Increased width slightly
         self.sidebar_frame.grid(row=0, column=0, rowspan=4, sticky="nsew")
-        self.sidebar_frame.grid_rowconfigure(20, weight=1) # Push appearance mode to bottom, ensure content is pushed up
+        self.sidebar_frame.grid_rowconfigure(30, weight=1) # Push appearance mode to bottom, ensure content is pushed up
 
         # Use the title set in __init__ which might come from app_config
         sidebar_title = ctk.CTkLabel(self.sidebar_frame, text=self.title(), font=ctk.CTkFont(size=16, weight="bold"))
@@ -483,8 +498,8 @@ class NikkeGuiApp(ctk.CTk):
 
         # --- Settings Button ---
         self.settings_button = ctk.CTkButton(self.sidebar_frame, text="延迟配置", command=self.open_settings_window)
-        self.settings_button.grid(row=current_row, column=0, padx=20, pady=(10, 0), sticky="ew")
-        current_row += 1
+        # self.settings_button.grid(row=current_row, column=0, padx=20, pady=(10, 0), sticky="ew") # This will be moved
+        # current_row += 1
 
         # --- Content Frame ---
         self.content_frame = ctk.CTkFrame(self)
@@ -510,7 +525,7 @@ class NikkeGuiApp(ctk.CTk):
         self.control_area.grid(row=3, column=1, sticky="nsew", padx=20, pady=(0,20))
         self.control_area.grid_columnconfigure(0, weight=1) # For status labels
         self.control_area.grid_columnconfigure(1, weight=0) # For buttons
-        self.control_area.grid_columnconfigure(2, weight=0)
+        self.control_area.grid_columnconfigure(2, weight=1) # For appearance mode
 
         status_frame = ctk.CTkFrame(self.control_area, fg_color="transparent")
         status_frame.grid(row=0, column=0, sticky="ew", padx=(0,10))
@@ -535,6 +550,32 @@ class NikkeGuiApp(ctk.CTk):
 
         self.stop_button = ctk.CTkButton(button_frame, text="停止脚本", command=self.request_stop_script, state="disabled", width=100)
         self.stop_button.pack(side="left", pady=10)
+
+        # --- Appearance Mode ---
+        appearance_frame = ctk.CTkFrame(self.control_area, fg_color="transparent")
+        appearance_frame.grid(row=0, column=2, sticky="e", padx=(10, 0))
+
+        self.settings_button = ctk.CTkButton(appearance_frame, text="延迟配置", command=self.open_settings_window, width=110)
+        self.settings_button.pack(side="left", padx=(0, 10))
+
+        appearance_label = ctk.CTkLabel(appearance_frame, text="外观模式:", anchor="w")
+        appearance_label.pack(side="left", padx=(0, 5))
+        
+        appearance_mode_options = ["Light", "Dark", "System"]
+        initial_mode = "System"
+        if hasattr(self.app_context, 'shared') and self.app_context.shared.app_config:
+             initial_mode = self.app_context.shared.app_config.get('global_settings', {}).get('appearance_mode', 'System')
+             if initial_mode not in appearance_mode_options:
+                 initial_mode = "System"
+
+        self.appearance_mode_menu = ctk.CTkOptionMenu(
+            appearance_frame,
+            values=appearance_mode_options,
+            command=self.change_appearance_mode_event,
+            width=110
+        )
+        self.appearance_mode_menu.set(initial_mode)
+        self.appearance_mode_menu.pack(side="left")
         
         # Initial mode selection
         if self.mode_buttons and hasattr(self.app_context, 'shared') and self.app_context.shared.available_modes:
@@ -562,6 +603,39 @@ class NikkeGuiApp(ctk.CTk):
             self.settings_window = SettingsWindow(self, self.app_context)
         else:
             self.settings_window.focus()
+
+    def change_appearance_mode_event(self, new_appearance_mode: str):
+        """
+        Changes the appearance mode of the application and saves it to the config.
+        """
+        logger = self.app_context.shared.logger if self.app_context and hasattr(self.app_context, 'shared') else logging.getLogger("AppearanceChangeLogger")
+        
+        try:
+            ctk.set_appearance_mode(new_appearance_mode)
+            logger.info(f"外观模式已切换为: {new_appearance_mode}")
+
+            # Save the new setting to the config file
+            if hasattr(self.app_context, 'shared') and self.app_context.shared.app_config:
+                # Ensure global_settings exists
+                if 'global_settings' not in self.app_context.shared.app_config:
+                    self.app_context.shared.app_config['global_settings'] = {}
+                
+                self.app_context.shared.app_config['global_settings']['appearance_mode'] = new_appearance_mode
+                
+                config_filepath = os.path.join(get_base_path(), "config.json")
+                with open(config_filepath, 'w', encoding='utf-8') as f:
+                    json.dump(self.app_context.shared.app_config, f, indent=2, ensure_ascii=False)
+                
+                logger.info(f"外观模式设置已保存到 {config_filepath}")
+                self.status_label.configure(text=f"外观模式已切换为 {new_appearance_mode} 并保存。", text_color="green")
+            else:
+                logger.warning("无法保存外观模式：app_context 或 app_config 不可用。")
+                self.status_label.configure(text="外观模式已切换，但无法保存。", text_color="orange")
+
+        except Exception as e:
+            logger.exception("切换外观模式时发生错误:")
+            self.status_label.configure(text=f"切换外观模式失败: {e}", text_color="red")
+
 
     def select_mode(self, mode_value, pressed_button):
         self.current_mode_value = mode_value

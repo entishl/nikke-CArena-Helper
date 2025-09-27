@@ -93,3 +93,4 @@ temp_app/
 outputs_64in8/
 output_app/
 .flake8
+mypy.ini
