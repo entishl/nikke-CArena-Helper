@@ -80,7 +80,7 @@ def run(context):
                 context,
                 images_to_stitch,
                 final_output_path,
-                spacing=getattr(mode_config, 'image_spacing', 20), # 从配置读取
+                spacing=getattr(mode_config, 'image_spacing', 20),  # 从配置读取
                 bg_color=core_utils.parse_color_string(getattr(mode_config, 'stitch_background_color_str', "0,0,0"), logger) # 从配置读取并解析
             )
             logger.info(f"模式1: 结果已保存到 {final_output_path}")

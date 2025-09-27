@@ -12,6 +12,7 @@ __pycache__/
 # C extensions
 *.so
 
+docs/
 # Distribution / packaging
 .Python
 build/
@@ -91,3 +92,4 @@ output_webp/
 temp_app/
 outputs_64in8/
 output_app/
+.flake8

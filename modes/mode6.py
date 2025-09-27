@@ -11,7 +11,7 @@ def run(context):
     logger = context.shared.logger
     nikke_window = context.shared.nikke_window
     cc = context.shared.constants
-    mode_config = context.mode_config # 获取模式特定配置
+    mode_config = context.mode_config  # 获取模式特定配置
 
     logger.info("===== 运行模式 6: Reviewer 完整分组赛 =====")
 

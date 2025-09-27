@@ -3,7 +3,7 @@
     "default_output_filename_prefix": "NCA",
     "default_temp_file_prefix": "temp_",
     "default_delete_temp_files_after_run": true,
-    "default_image_spacing": 0,
+    "default_image_spacing": 10,
     "default_stitch_background_color": "0,0,0",
     "log_to_file": false,
     "log_filename": "app_log.log"
