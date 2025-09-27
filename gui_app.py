@@ -545,7 +545,7 @@ class NikkeGuiApp(ctk.CTk):
         button_frame = ctk.CTkFrame(self.control_area, fg_color="transparent")
         button_frame.grid(row=0, column=1, sticky="e")
 
-        self.start_button = ctk.CTkButton(button_frame, text="启动脚本", command=self.start_script, width=100)
+        self.start_button = ctk.CTkButton(button_frame, text="启动脚本", command=self.start_script, width=100, fg_color="green", font=ctk.CTkFont(weight="bold"))
         self.start_button.pack(side="left", padx=(0,10), pady=10)
 
         self.stop_button = ctk.CTkButton(button_frame, text="停止脚本", command=self.request_stop_script, state="disabled", width=100)
