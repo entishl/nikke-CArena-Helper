@@ -96,4 +96,3 @@ output_app/
 mypy.ini
 *.md
 !README.md
-.claude/
