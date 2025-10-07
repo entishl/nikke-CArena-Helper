@@ -1,6 +1,6 @@
 {
   "global_settings": {
-    "appearance_mode": "System",
+    "appearance_mode": "Dark",
     "default_output_filename_prefix": "NCA",
     "default_temp_file_prefix": "temp_",
     "default_delete_temp_files_after_run": true,
