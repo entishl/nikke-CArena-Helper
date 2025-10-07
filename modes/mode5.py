@@ -1,6 +1,9 @@
 import os
 import shutil
-from core import utils as core_utils
+from core import automation_utils as core_automation_utils
+from core import image_utils as core_image_utils
+from core import file_utils as core_file_utils
+from core import common_utils as core_common_utils
 from core import player_processing
 # constants 可以通过 context.shared.constants 访问
 
@@ -13,7 +16,7 @@ def run(context):
 
     logger.info("===== 运行模式 5: 冠军争霸模式 =====")
 
-    if core_utils.check_stop_signal(context):
+    if core_automation_utils.check_stop_signal(context):
         logger.info("模式5：检测到停止信号，提前退出。")
         return
 
@@ -36,14 +39,14 @@ def run(context):
 
     try:
         # 获取模式5的专用输出子目录
-        mode5_output_dir = core_utils.get_or_create_mode_output_subdir(context, 5, "outputs_champ_pred")
+        mode5_output_dir = core_file_utils.get_or_create_mode_output_subdir(context, 5, "outputs_champ_pred")
         if not mode5_output_dir:
             logger.error("模式5: 无法创建或获取输出目录，模式终止。")
             context.final_message = "模式5: 创建输出目录失败。"
             return
 
         for i, player_coord_rel in enumerate(mode5_player_coords_map):
-            if core_utils.check_stop_signal(context):
+            if core_automation_utils.check_stop_signal(context):
                 logger.info(f"模式5：处理玩家 {i+1} 前检测到停止信号。")
                 return
 
@@ -66,7 +69,7 @@ def run(context):
             if p_stitched_temp_path and os.path.exists(p_stitched_temp_path):
                 player_output_filename = final_output_player_basename.format(i+1)
                 # 在模式专用子目录中为每个玩家图片生成唯一路径
-                final_player_image_path = core_utils.generate_unique_filepath(mode5_output_dir, player_output_filename, logger)
+                final_player_image_path = core_file_utils.generate_unique_filepath(mode5_output_dir, player_output_filename, logger)
                 
                 shutil.copy2(p_stitched_temp_path, final_player_image_path)
                 mode5_individual_stitched_files.append(final_player_image_path)
@@ -74,19 +77,19 @@ def run(context):
             else:
                 logger.error(f"  处理模式5 - Player {i+1} 失败。未找到截图: {p_stitched_temp_path}")
 
-            if core_utils.check_stop_signal(context):
+            if core_automation_utils.check_stop_signal(context):
                 logger.info(f"模式5：处理玩家 {i+1} 后检测到停止信号。")
                 return
         
-        if core_utils.check_stop_signal(context):
+        if core_automation_utils.check_stop_signal(context):
              logger.info("模式5：所有玩家处理完毕，拼接前检测到停止信号。")
              return
 
         if len(mode5_individual_stitched_files) == 8:
             # 为总览图在模式专用子目录中生成唯一路径
-            overview_output_path = core_utils.generate_unique_filepath(mode5_output_dir, final_output_overview_filename, logger)
+            overview_output_path = core_file_utils.generate_unique_filepath(mode5_output_dir, final_output_overview_filename, logger)
             # 复用 mode4 的总览图拼接逻辑，传递 context
-            success = core_utils.stitch_mode4_overview(context, mode5_individual_stitched_files, overview_output_path)
+            success = core_image_utils.stitch_mode4_overview(context, mode5_individual_stitched_files, overview_output_path)
 
             if success:
                 logger.info(f"模式5总览图已生成: {overview_output_path}.")

@@ -1,6 +1,9 @@
 # modes/mode41.py
 import os
-from core import utils as core_utils
+from core import automation_utils as core_automation_utils
+from core import image_utils as core_image_utils
+from core import file_utils as core_file_utils
+from core import common_utils as core_common_utils
 import copy # 导入copy模块
 from core import player_processing
 # 常量将通过 context.shared.constants 访问
@@ -13,7 +16,7 @@ def run(context):
     logger.info("===== 运行模式 41: 小组赛模式 =====")
     context.shared.final_message = "模式41：正在初始化..."
 
-    if core_utils.check_stop_signal(context):
+    if core_automation_utils.check_stop_signal(context):
         logger.info("模式41：检测到停止信号，提前退出。")
         context.shared.final_message = "模式41：操作在开始前被用户取消。"
         return
@@ -34,7 +37,7 @@ def run(context):
             current_player_temp_prefix = f"{player_temp_prefix_base}_{player_num}"
             logger.info(f"模式41: 开始处理玩家 {player_num} (临时文件前缀: {current_player_temp_prefix})...")
 
-            if core_utils.check_stop_signal(context):
+            if core_automation_utils.check_stop_signal(context):
                 logger.info(f"模式41: 处理玩家 {player_num} 前检测到停止信号。")
                 context.shared.final_message = f"模式41：操作在处理玩家 {player_num} 前被用户取消。"
                 return
@@ -68,7 +71,7 @@ def run(context):
             player_stitched_image_paths.append(stitched_path)
             logger.info(f"模式41: 玩家 {player_num} 数据处理完成，图片路径: {stitched_path}")
 
-            if core_utils.check_stop_signal(context):
+            if core_automation_utils.check_stop_signal(context):
                 logger.info(f"模式41: 处理玩家 {player_num} 后检测到停止信号。")
                 context.shared.final_message = f"模式41：操作在处理玩家 {player_num} 后被用户取消。\n已收集 {len(player_stitched_image_paths)} 张玩家图片。"
                 return
@@ -83,10 +86,10 @@ def run(context):
         base_name = getattr(context.mode_config, 'output_filename_prefix', 'NCA')
         suffix = getattr(mode_config, 'm41_output_suffix', '_group_stage_match')
         
-        timestamp = core_utils.get_timestamp_for_filename() # 假设 core_utils.get_timestamp_for_filename() 存在
+        timestamp = core_file_utils.get_timestamp_for_filename() # 假设 core_file_utils.get_timestamp_for_filename() 存在
         final_output_filename = f"{base_name}{suffix}_{timestamp}.png"
 
-        output_dir_for_mode41 = core_utils.get_or_create_mode_output_subdir(context, 41, "group_stage_matches")
+        output_dir_for_mode41 = core_file_utils.get_or_create_mode_output_subdir(context, 41, "group_stage_matches")
         
         if not output_dir_for_mode41:
             logger.error("模式41: 无法获取或创建输出子目录，中止。")
@@ -96,7 +99,7 @@ def run(context):
         final_output_path = os.path.join(output_dir_for_mode41, final_output_filename)
         logger.info(f"模式41: 最终输出文件名将是: {final_output_filename} (在目录: {output_dir_for_mode41})")
 
-        success_stitch = core_utils.stitch_images_horizontally(
+        success_stitch = core_image_utils.stitch_images_horizontally(
             context,
             player_stitched_image_paths,
             final_output_path,

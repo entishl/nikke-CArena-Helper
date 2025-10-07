@@ -1,6 +1,9 @@
 import os
 import shutil
-from core import utils as core_utils
+from core import automation_utils as core_automation_utils
+from core import image_utils as core_image_utils
+from core import file_utils as core_file_utils
+from core import common_utils as core_common_utils
 from core import player_processing
 # constants 可以通过 context.shared.constants 访问
 
@@ -13,7 +16,7 @@ def run(context):
 
     logger.info("===== 运行模式 4: 64进8专用模式 =====")
 
-    if core_utils.check_stop_signal(context):
+    if core_automation_utils.check_stop_signal(context):
         logger.info("模式4：检测到停止信号，提前退出。")
         return
 
@@ -36,7 +39,7 @@ def run(context):
 
     try:
         for i, player_coord_rel in enumerate(mode4_player_coords_map):
-            if core_utils.check_stop_signal(context):
+            if core_automation_utils.check_stop_signal(context):
                 logger.info(f"模式4：处理玩家 {i+1} 前检测到停止信号。")
                 return
 
@@ -60,13 +63,13 @@ def run(context):
             if p_stitched_temp_path and os.path.exists(p_stitched_temp_path):
                 # 获取/创建模式4的输出子目录
                 # 使用 "mode4_outputs" 作为子目录基础名示例
-                mode4_output_dir = core_utils.get_or_create_mode_output_subdir(context, 4, "outputs_64in8")
+                mode4_output_dir = core_file_utils.get_or_create_mode_output_subdir(context, 4, "outputs_64in8")
                 if not mode4_output_dir:
                     logger.error(f"  模式4 - Player {i+1}: 无法创建输出目录，跳过保存。")
                     continue # 或者 return，取决于错误处理策略
 
                 player_output_basename = final_output_player_basename_template.format(i+1)
-                final_player_image_path = core_utils.generate_unique_filepath(mode4_output_dir, player_output_basename, logger)
+                final_player_image_path = core_file_utils.generate_unique_filepath(mode4_output_dir, player_output_basename, logger)
                 
                 shutil.copy2(p_stitched_temp_path, final_player_image_path)
                 mode4_individual_stitched_files.append(final_player_image_path)
@@ -74,28 +77,28 @@ def run(context):
             else:
                 logger.error(f"  处理模式4 - Player {i+1} 失败。未找到截图: {p_stitched_temp_path}")
             
-            if core_utils.check_stop_signal(context):
+            if core_automation_utils.check_stop_signal(context):
                 logger.info(f"模式4：处理玩家 {i+1} 后检测到停止信号。")
                 return
         
-        if core_utils.check_stop_signal(context):
+        if core_automation_utils.check_stop_signal(context):
              logger.info("模式4：所有玩家处理完毕，拼接前检测到停止信号。")
              return
 
         if len(mode4_individual_stitched_files) == 8:
             # 获取/创建模式4的输出子目录 (如果之前未获取)
-            mode4_output_dir = core_utils.get_or_create_mode_output_subdir(context, 4, "outputs_64in8")
+            mode4_output_dir = core_file_utils.get_or_create_mode_output_subdir(context, 4, "outputs_64in8")
             if not mode4_output_dir:
                 logger.error("模式4: 无法创建总览图输出目录，中止拼接。")
                 # 根据情况设置 final_message
                 context.final_message = f"模式4生成了{len(mode4_individual_stitched_files)}张独立图, 但无法创建总览图输出目录。"
                 return
 
-            unique_overview_output_path = core_utils.generate_unique_filepath(mode4_output_dir, final_output_overview_basename, logger)
+            unique_overview_output_path = core_file_utils.generate_unique_filepath(mode4_output_dir, final_output_overview_basename, logger)
             
             # stitch_mode4_overview 现在接收已经唯一化处理的路径
             # 并且其内部不再进行文件名唯一化
-            actual_saved_overview_path = core_utils.stitch_mode4_overview(context, mode4_individual_stitched_files, unique_overview_output_path)
+            actual_saved_overview_path = core_image_utils.stitch_mode4_overview(context, mode4_individual_stitched_files, unique_overview_output_path)
 
             if actual_saved_overview_path: # stitch_mode4_overview 返回实际保存的路径或 None
                 logger.info(f"模式4总览图已生成: {actual_saved_overview_path}.")

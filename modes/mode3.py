@@ -1,7 +1,10 @@
 import os # 确保导入 os 模块
 import shutil # 用于复制文件
 import datetime
-from core import utils as core_utils
+from core import automation_utils as core_automation_utils
+from core import image_utils as core_image_utils
+from core import file_utils as core_file_utils
+from core import common_utils as core_common_utils
 from core import player_processing
 # constants 可以通过 context.shared.constants 访问，或直接导入
 # from core import constants as cc
@@ -13,7 +16,7 @@ def run(context):
 
     logger.info("===== 运行模式 3: 反买存档 =====")
 
-    if core_utils.check_stop_signal(context):
+    if core_automation_utils.check_stop_signal(context):
         logger.info("模式3：检测到停止信号，提前退出。")
         return
 
@@ -36,7 +39,7 @@ def run(context):
         if not player1_stitched_path:
              logger.error("模式3: 处理玩家1数据失败。")
              return
-        if core_utils.check_stop_signal(context): return
+        if core_automation_utils.check_stop_signal(context): return
 
         vote_screenshot_path = None
         if getattr(context.mode_config, 'm3_include_vote', False):
@@ -52,14 +55,14 @@ def run(context):
             vote_screenshot_path_temp = os.path.join(mode3_temp_dir, vote_temp_filename)
 
             if hasattr(cc, 'M3_PEOPLE_VOTE_REGION_REL'):
-                if core_utils.take_screenshot(context, cc.M3_PEOPLE_VOTE_REGION_REL, nikke_window, vote_screenshot_path_temp):
+                if core_automation_utils.take_screenshot(context, cc.M3_PEOPLE_VOTE_REGION_REL, nikke_window, vote_screenshot_path_temp):
                     logger.info(f"模式3: 民意投票截图已保存到 '{vote_screenshot_path_temp}'")
                     vote_screenshot_path = vote_screenshot_path_temp # 存储成功截图的路径
                 else:
                     logger.warning("模式3: 未能截取民意投票区域。")
             else:
                 logger.warning("模式3: 未在常量中找到 M3_PEOPLE_VOTE_REGION_REL。无法截取民意投票。")
-            if core_utils.check_stop_signal(context): return
+            if core_automation_utils.check_stop_signal(context): return
         
         # 准备 P2 的参数
         p2_entry_rel = cc.M3_PLAYER2_ENTRY_REL
@@ -77,7 +80,7 @@ def run(context):
         if not player2_stitched_path:
              logger.error("模式3: 处理玩家2数据失败。")
              return
-        if core_utils.check_stop_signal(context): return
+        if core_automation_utils.check_stop_signal(context): return
 
         # 拼接
         base_name = getattr(context.mode_config, 'output_filename_prefix', 'NCA')
@@ -87,7 +90,7 @@ def run(context):
 
         # 使用 core_utils 中的辅助函数获取或创建模式输出子目录
         # mode_number for mode3 is 3. subdir_name is "counter_saves".
-        mode_output_dir = core_utils.get_or_create_mode_output_subdir(context, 3, "counter_saves")
+        mode_output_dir = core_file_utils.get_or_create_mode_output_subdir(context, 3, "counter_saves")
         
         if not mode_output_dir:
             logger.error("模式3: 无法创建或获取输出子目录，中止处理。")
@@ -105,7 +108,7 @@ def run(context):
             
         # 根据实际收集到的图片数量判断是否拼接
         if len(images_to_stitch) >= 2:
-            core_utils.stitch_images_horizontally(
+            core_image_utils.stitch_images_horizontally(
                 context,
                 images_to_stitch,
                 final_output_path,

@@ -2,7 +2,7 @@ import json
 import os
 import ctypes
 import logging
-from core.utils import get_base_path
+from core.file_utils import get_base_path
 
 
 class EventHandler:

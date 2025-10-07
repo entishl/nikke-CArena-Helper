@@ -1,7 +1,7 @@
 import os
 import logging
 from PIL import Image, ImageTk
-from core.utils import get_asset_path
+from core.file_utils import get_asset_path
 
 
 class ImageManager:

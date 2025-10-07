@@ -1,4 +1,7 @@
-from core import utils as core_utils
+from core import automation_utils as core_automation_utils
+from core import image_utils as core_image_utils
+from core import file_utils as core_file_utils
+from core import common_utils as core_common_utils
 import os
 import datetime
 from core import player_processing
@@ -13,7 +16,7 @@ def run(context):
 
     logger.info("===== 运行模式 1: 买马预测 =====")
 
-    if core_utils.check_stop_signal(context):
+    if core_automation_utils.check_stop_signal(context):
         logger.info("模式1：检测到停止信号，提前退出。")
         return
 
@@ -35,7 +38,7 @@ def run(context):
         if not player1_stitched_path:
              logger.error("模式1: 处理玩家1数据失败。")
              return
-        if core_utils.check_stop_signal(context): return
+        if core_automation_utils.check_stop_signal(context): return
 
         # 准备 P2 的参数
         p2_entry_rel = cc.PRED_PLAYER2_ENTRY_REL
@@ -52,7 +55,7 @@ def run(context):
         if not player2_stitched_path:
              logger.error("模式1: 处理玩家2数据失败。")
              return
-        if core_utils.check_stop_signal(context): return
+        if core_automation_utils.check_stop_signal(context): return
 
         # 拼接
         # 从 mode_config 获取配置来构建文件名
@@ -65,7 +68,7 @@ def run(context):
         final_output_filename = f"{base_name}_{player1_name_for_file}_vs_{player2_name_for_file}{suffix}_{timestamp}.png"
         
         # 使用新的辅助函数获取或创建模式输出子目录
-        output_dir_for_mode1 = core_utils.get_or_create_mode_output_subdir(context, 1, "predictions")
+        output_dir_for_mode1 = core_file_utils.get_or_create_mode_output_subdir(context, 1, "predictions")
         
         if not output_dir_for_mode1:
             logger.error("模式1: 无法获取或创建输出子目录，中止。")
@@ -76,12 +79,12 @@ def run(context):
 
         images_to_stitch = [p for p in [player1_stitched_path, player2_stitched_path] if p]
         if len(images_to_stitch) == 2:
-            core_utils.stitch_images_horizontally(
+            core_image_utils.stitch_images_horizontally(
                 context,
                 images_to_stitch,
                 final_output_path,
                 spacing=getattr(mode_config, 'image_spacing', 20),  # 从配置读取
-                bg_color=core_utils.parse_color_string(getattr(mode_config, 'stitch_background_color_str', "0,0,0"), logger) # 从配置读取并解析
+                bg_color=core_common_utils.parse_color_string(getattr(mode_config, 'stitch_background_color_str', "0,0,0"), logger) # 从配置读取并解析
             )
             logger.info(f"模式1: 结果已保存到 {final_output_path}")
         else:

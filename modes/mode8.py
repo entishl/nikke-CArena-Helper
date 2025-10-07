@@ -3,11 +3,14 @@ import time
 import os
 import copy # 导入copy模块
 
-from core import utils as core_utils
+from core import automation_utils as core_automation_utils
+from core import image_utils as core_image_utils
+from core import file_utils as core_file_utils
+from core import common_utils as core_common_utils
 from core import match_processing
 # Constants will be accessed via context.shared.constants
 
-# Removed _get_pixel_color_for_mode as it's now in core_utils.get_pixel_color_relative
+# Removed _get_pixel_color_for_mode as it's now in core_automation_utils.get_pixel_color_relative
 
 def run(context):
     logger = context.shared.logger
@@ -32,7 +35,7 @@ def run(context):
     total_matches_overall = len(match_names_to_process)
     completed_matches_overall = 0
     
-    if core_utils.check_stop_signal(context):
+    if core_automation_utils.check_stop_signal(context):
         logger.info("Mode8: 检测到停止信号，在开始处理前退出。")
         return
 
@@ -48,10 +51,10 @@ def run(context):
     
     logger.info(f"Mode8: 执行颜色判断 for {file_prefix_base}: Coord1={color_check_coord1_rel}, Coord2={color_check_coord2_rel}")
     
-    color1_rgb = core_utils.get_pixel_color_relative(context, nikke_window, color_check_coord1_rel) # nikke_window is still needed by get_pixel_color_relative
-    if core_utils.check_stop_signal(context): return
-    color2_rgb = core_utils.get_pixel_color_relative(context, nikke_window, color_check_coord2_rel) # nikke_window is still needed by get_pixel_color_relative
-    if core_utils.check_stop_signal(context): return
+    color1_rgb = core_automation_utils.get_pixel_color_relative(context, nikke_window, color_check_coord1_rel) # nikke_window is still needed by get_pixel_color_relative
+    if core_automation_utils.check_stop_signal(context): return
+    color2_rgb = core_automation_utils.get_pixel_color_relative(context, nikke_window, color_check_coord2_rel) # nikke_window is still needed by get_pixel_color_relative
+    if core_automation_utils.check_stop_signal(context): return
 
     if color1_rgb and color2_rgb:
         b1, b2 = color1_rgb[2], color2_rgb[2] # 比较蓝色值
@@ -76,7 +79,7 @@ def run(context):
                 f"2in1={final_target_2in1_rel}")
 
     for match_idx, match_name_std in enumerate(match_names_to_process): # match_name_std is like "8in4_1", "4in2_1"
-        if core_utils.check_stop_signal(context):
+        if core_automation_utils.check_stop_signal(context):
             logger.info(f"Mode8: 检测到停止信号，在处理比赛 {match_name_std} (冠军赛) 前退出。")
             return
 
@@ -104,7 +107,7 @@ def run(context):
 
         # --- 点击比赛入口 ---
         logger.info(f"Mode8: 点击比赛 '{match_name_std}' 入口 at {match_specific_entry_coord_rel}")
-        if not core_utils.click_coordinates(context, match_specific_entry_coord_rel, nikke_window):
+        if not core_automation_utils.click_coordinates(context, match_specific_entry_coord_rel, nikke_window):
             logger.error(f"Mode8: 点击比赛 '{match_name_std}' 入口失败。跳过此比赛。")
             continue
         
@@ -112,11 +115,11 @@ def run(context):
         delay_after_entry = cc.R_M8_DELAY_AFTER_MATCH_ENTRY.get(m8_match_key, cc.R_DELAY_DEFAULT_AFTER_MATCH_ENTRY)
         logger.info(f"Mode8: 等待 {delay_after_entry} 秒...")
         time.sleep(delay_after_entry)
-        if core_utils.check_stop_signal(context): return
+        if core_automation_utils.check_stop_signal(context): return
 
         if match_specific_second_entry_coord_rel:
             logger.info(f"Mode8: 点击比赛 '{match_name_std}' 第二入口 at {match_specific_second_entry_coord_rel}")
-            if not core_utils.click_coordinates(context, match_specific_second_entry_coord_rel, nikke_window):
+            if not core_automation_utils.click_coordinates(context, match_specific_second_entry_coord_rel, nikke_window):
                 logger.error(f"Mode8: 点击比赛 '{match_name_std}' 第二入口失败。跳过此比赛。")
                 continue
             # 使用新的延迟常量 R_M8_DELAY_AFTER_SECOND_MATCH_ENTRY
@@ -124,7 +127,7 @@ def run(context):
             if delay_after_second_entry > 0:
                 logger.info(f"Mode8: 等待 {delay_after_second_entry} 秒...")
                 time.sleep(delay_after_second_entry)
-            if core_utils.check_stop_signal(context): return
+            if core_automation_utils.check_stop_signal(context): return
 
         # --- 调用核心比赛处理流程 ---
         # 从配置加载延迟并更新 player_info_regions_config
@@ -158,11 +161,11 @@ def run(context):
             logger.info(f"Mode8: 冠军赛进度: {completed_matches_overall}/{total_matches_overall} ({completed_matches_overall/total_matches_overall:.1%})")
         else:
             logger.error(f"Mode8: 处理比赛 {file_prefix_base}_{match_name_std} 失败或被中断。")
-            if core_utils.check_stop_signal(context):
+            if core_automation_utils.check_stop_signal(context):
                 logger.info("Mode8: 因停止信号，中止处理冠军赛。")
                 return
 
-        if core_utils.check_stop_signal(context):
+        if core_automation_utils.check_stop_signal(context):
             logger.info(f"Mode8: 检测到停止信号，完成比赛 {match_name_std} (冠军赛) 后退出。")
             return
         

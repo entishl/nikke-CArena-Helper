@@ -12,14 +12,16 @@ import json
 # app.py 在调用相关功能时可能会失败，这将在后续子阶段解决。
 try:
     from core import constants as core_constants
-    from core import utils as core_utils
+    from core import automation_utils as core_automation_utils
+    from core import file_utils as core_file_utils
 except ImportError:
     print("警告: 无法从 core 模块导入部分内容。app.py 的某些功能可能受限。")
-    print("请确保 core.constants 和 core.utils 按计划存在和更新。")
+    print("请确保 core.constants 和 core 模块按计划存在和更新。")
     # 提供临时的 core_constants 存根，以允许 AppContext 定义
     class TempConstants: pass
     core_constants = TempConstants()
-    core_utils = None # 标记 core_utils 未成功导入
+    core_automation_utils = None # 标记 core_automation_utils 未成功导入
+    core_file_utils = None # 标记 core_file_utils 未成功导入
 
 # --- 全局常量 ---
 APP_NAME = "Nikke Champion Arena Cheerleading Tool"
@@ -215,7 +217,7 @@ def load_app_config(logger):
    - 处理文件未找到、JSON 格式错误或其他异常。
    - 如果失败，记录详细错误并返回默认配置。
    """
-   base_path = core_utils.get_base_path()
+   base_path = core_file_utils.get_base_path()
    config_filepath = os.path.join(base_path, "config.json")
    logger.info(f"Attempting to load config from: {config_filepath}")
    try:
@@ -393,7 +395,7 @@ def setup_app_environment(context: AppContext):
 
     logger.info(f"Attempting to find NIKKE window (activation deferred)...") # 修改日志
     # 修改调用以匹配新的 find_and_activate_window 签名
-    nikke_window = core_utils.find_and_activate_window(context, activate_now=False) # 修改调用
+    nikke_window = core_automation_utils.find_and_activate_window(context, activate_now=False) # 修改调用
     if nikke_window:
         context.shared.nikke_window = nikke_window
         logger.info(f"Successfully found NIKKE window: {nikke_window.title} (activation deferred)") # 修改日志

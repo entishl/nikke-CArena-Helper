@@ -3,7 +3,10 @@ import time
 import os # For path joining if needed, though utils should handle it
 import copy # 导入copy模块
 
-from core import utils as core_utils
+from core import automation_utils as core_automation_utils
+from core import image_utils as core_image_utils
+from core import file_utils as core_file_utils
+from core import common_utils as core_common_utils
 from core import match_processing
 # Constants will be accessed via context.shared.constants
 
@@ -39,7 +42,7 @@ def run(context):
     for group_config_idx in groups_to_process_config_indices: # group_config_idx is 0-indexed
         group_actual_number = group_config_idx + 1 # 1-indexed for display and keys
 
-        if core_utils.check_stop_signal(context):
+        if core_automation_utils.check_stop_signal(context):
             logger.info(f"Mode6: 检测到停止信号，在处理组 {group_actual_number} (索引 {group_config_idx}) 前退出。")
             return
         
@@ -53,12 +56,12 @@ def run(context):
             continue
         
         logger.info(f"Mode6: 点击组别 {group_actual_number} 按钮 at {group_button_coord_rel}...")
-        if not core_utils.click_coordinates(context, group_button_coord_rel, nikke_window):
+        if not core_automation_utils.click_coordinates(context, group_button_coord_rel, nikke_window):
             logger.error(f"Mode6: 点击组别 {group_actual_number} 按钮失败，跳过该组。")
             continue
         time.sleep(cc.R_DELAY_AFTER_GROUP_CLICK) # 使用常量
 
-        if core_utils.check_stop_signal(context):
+        if core_automation_utils.check_stop_signal(context):
             logger.info(f"Mode6: 检测到停止信号，在点击组 {group_actual_number} 后退出。")
             return
         
@@ -72,10 +75,10 @@ def run(context):
         
         logger.info(f"Mode6: 执行颜色判断 for {current_group_file_prefix}: Coord1={color_check_coord1_rel}, Coord2={color_check_coord2_rel}")
         
-        color1_rgb = core_utils.get_pixel_color_relative(context, nikke_window, color_check_coord1_rel)
-        if core_utils.check_stop_signal(context): return
-        color2_rgb = core_utils.get_pixel_color_relative(context, nikke_window, color_check_coord2_rel)
-        if core_utils.check_stop_signal(context): return
+        color1_rgb = core_automation_utils.get_pixel_color_relative(context, nikke_window, color_check_coord1_rel)
+        if core_automation_utils.check_stop_signal(context): return
+        color2_rgb = core_automation_utils.get_pixel_color_relative(context, nikke_window, color_check_coord2_rel)
+        if core_automation_utils.check_stop_signal(context): return
 
         if color1_rgb and color2_rgb:
             b1, b2 = color1_rgb[2], color2_rgb[2] # 比较蓝色值
@@ -100,7 +103,7 @@ def run(context):
                     f"2in1={final_target_2in1_rel}")
 
         for match_idx, match_name in enumerate(cc.R_MATCH_NAMES):
-            if core_utils.check_stop_signal(context):
+            if core_automation_utils.check_stop_signal(context):
                 logger.info(f"Mode6: 检测到停止信号，在处理比赛 {match_name} (组 {group_actual_number}) 前退出。")
                 return
 
@@ -125,18 +128,18 @@ def run(context):
 
             # --- 点击比赛入口 ---
             logger.info(f"Mode6: 点击比赛 '{match_name}' 入口 at {match_specific_entry_coord_rel}")
-            if not core_utils.click_coordinates(context, match_specific_entry_coord_rel, nikke_window):
+            if not core_automation_utils.click_coordinates(context, match_specific_entry_coord_rel, nikke_window):
                 logger.error(f"Mode6: 点击比赛 '{match_name}' 入口失败。跳过此比赛。")
                 continue
             
             delay_after_entry = cc.R_DELAY_AFTER_MATCH_ENTRY.get(match_name, cc.R_DELAY_DEFAULT_AFTER_MATCH_ENTRY)
             logger.info(f"Mode6: 等待 {delay_after_entry} 秒...")
             time.sleep(delay_after_entry)
-            if core_utils.check_stop_signal(context): return
+            if core_automation_utils.check_stop_signal(context): return
 
             if match_specific_second_entry_coord_rel:
                 logger.info(f"Mode6: 点击比赛 '{match_name}' 第二入口 at {match_specific_second_entry_coord_rel}")
-                if not core_utils.click_coordinates(context, match_specific_second_entry_coord_rel, nikke_window):
+                if not core_automation_utils.click_coordinates(context, match_specific_second_entry_coord_rel, nikke_window):
                     logger.error(f"Mode6: 点击比赛 '{match_name}' 第二入口失败。跳过此比赛。")
                     continue
                 # 使用 cc.R_DELAY_AFTER_SECOND_MATCH_ENTRY，如果常量存在的话
@@ -145,7 +148,7 @@ def run(context):
                 if delay_after_second_entry > 0:
                     logger.info(f"Mode6: 等待 {delay_after_second_entry} 秒...")
                     time.sleep(delay_after_second_entry)
-                if core_utils.check_stop_signal(context): return
+                if core_automation_utils.check_stop_signal(context): return
             
             # --- 调用核心比赛处理流程 ---
             # 从配置加载延迟并更新 player_info_regions_config
@@ -180,11 +183,11 @@ def run(context):
                 logger.info(f"Mode6: 整体进度: {completed_matches_overall}/{total_matches_overall} ({completed_matches_overall/total_matches_overall:.1%})")
             else:
                 logger.error(f"Mode6: 处理比赛 {current_group_file_prefix}_{match_name} 失败或被中断。")
-                if core_utils.check_stop_signal(context): 
+                if core_automation_utils.check_stop_signal(context): 
                     logger.info(f"Mode6: 因停止信号，中止处理组 {group_actual_number}。")
                     return 
 
-            if core_utils.check_stop_signal(context): 
+            if core_automation_utils.check_stop_signal(context): 
                 logger.info(f"Mode6: 检测到停止信号，完成比赛 {match_name} (组 {group_actual_number}) 后退出。")
                 return
             

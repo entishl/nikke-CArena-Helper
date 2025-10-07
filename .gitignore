@@ -94,3 +94,5 @@ outputs_64in8/
 output_app/
 .flake8
 mypy.ini
+*.md
+!README.md

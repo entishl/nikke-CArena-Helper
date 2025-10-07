@@ -1,6 +1,9 @@
 import os  # 确保导入 os 模块
 import datetime
-from core import utils as core_utils
+from core import automation_utils as core_automation_utils
+from core import image_utils as core_image_utils
+from core import file_utils as core_file_utils
+from core import common_utils as core_common_utils
 from core import player_processing
 # constants 可以通过 context.shared.constants 访问，或直接导入
 # from core import constants as cc
@@ -13,7 +16,7 @@ def run(context):
 
     logger.info("===== 运行模式 2: 复盘模式 =====")
 
-    if core_utils.check_stop_signal(context):
+    if core_automation_utils.check_stop_signal(context):
         logger.info("模式2：检测到停止信号，提前退出。")
         return
 
@@ -36,7 +39,7 @@ def run(context):
         if not player1_stitched_path:
             logger.error("模式2: 处理玩家1数据失败。")
             return
-        if core_utils.check_stop_signal(context):
+        if core_automation_utils.check_stop_signal(context):
             return
 
         # 截取赛果图
@@ -53,7 +56,7 @@ def run(context):
             temp_result_path = os.path.join(mode2_temp_dir, result_image_filename)
 
             if hasattr(cc, 'PRED_RESULT_REGION_REL_M2'):
-                if core_utils.take_screenshot(
+                if core_automation_utils.take_screenshot(
                     context,
                     relative_region=cc.PRED_RESULT_REGION_REL_M2,
                     window=nikke_window,  # take_screenshot 当前仍需要 window 参数
@@ -65,7 +68,7 @@ def run(context):
                     logger.error("模式2: 截取赛果图失败。")
             else:
                 logger.error("模式2: 未在常量中找到 PRED_RESULT_REGION_REL_M2，无法截取赛果图。")
-            if core_utils.check_stop_signal(context):
+            if core_automation_utils.check_stop_signal(context):
                 return
         else:
             logger.info("模式2: 根据配置，不截取赛果图。")
@@ -86,7 +89,7 @@ def run(context):
         if not player2_stitched_path:
             logger.error("模式2: 处理玩家2数据失败。")
             return
-        if core_utils.check_stop_signal(context):
+        if core_automation_utils.check_stop_signal(context):
             return
 
         # 拼接
@@ -102,7 +105,7 @@ def run(context):
         # 根据审查反馈 #12 和 core_utils.py 中的 get_or_create_mode_output_subdir 实现，
         # 该函数会创建类似 "mode2_reviews" 的子目录。
         # 参数 subdir_basename="reviews" 将与 mode_identifier=2 结合。
-        final_output_dir_path = core_utils.get_or_create_mode_output_subdir(context, 2, "reviews")
+        final_output_dir_path = core_file_utils.get_or_create_mode_output_subdir(context, 2, "reviews")
 
         if not final_output_dir_path:
             logger.error("模式2: 无法创建或获取输出子目录，中止。")
@@ -151,9 +154,9 @@ def run(context):
             else:  # 多于一张图，进行拼接
                 # 背景色从配置读取 (与模式1一致)
                 bg_color_str = getattr(context.mode_config, 'stitch_background_color_str', "0,0,0")
-                bg_color_tuple = core_utils.parse_color_string(bg_color_str, logger)
+                bg_color_tuple = core_common_utils.parse_color_string(bg_color_str, logger)
 
-                if core_utils.stitch_images_horizontally(
+                if core_image_utils.stitch_images_horizontally(
                     context,
                     final_images_to_stitch,
                     final_output_path,

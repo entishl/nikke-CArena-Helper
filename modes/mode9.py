@@ -2,7 +2,10 @@
 import os
 import glob
 import shutil # 导入 shutil 模块
-from core import utils as core_utils
+from core import automation_utils as core_automation_utils
+from core import image_utils as core_image_utils
+from core import file_utils as core_file_utils
+from core import common_utils as core_common_utils
 
 def run(context):
     logger = context.shared.logger
@@ -10,7 +13,7 @@ def run(context):
 
     logger.info("===== 运行模式 9: 图片处理与打包 =====")
 
-    if core_utils.check_stop_signal(context):
+    if core_automation_utils.check_stop_signal(context):
         logger.info("模式9：检测到停止信号，提前退出。")
         return
 
@@ -66,7 +69,7 @@ def run(context):
         else:
             processed_count = 0
             for img_path in image_files_to_process:
-                if core_utils.check_stop_signal(context):
+                if core_automation_utils.check_stop_signal(context):
                     logger.info("模式9: 图片处理过程中检测到停止信号。")
                     break
                 
@@ -77,10 +80,10 @@ def run(context):
 
                 logger.info(f"模式9: 正在处理图片 '{img_path}'")
                 # process_image_to_webp 需要接收 quality 参数
-                # 我们需要修改 core_utils.process_image_to_webp 来接受这个参数
+                # 我们需要修改 core_image_utils.process_image_to_webp 来接受这个参数
                 # 暂时假设它已修改，或传递 context.mode_config.m9_webp_quality
                 # 为了简单起见，这里直接传递 quality 值
-                webp_path = core_utils.process_image_to_webp(context, img_path, output_webp_dir, quality=webp_quality, lossless=webp_lossless)
+                webp_path = core_image_utils.process_image_to_webp(context, img_path, output_webp_dir, quality=webp_quality, lossless=webp_lossless)
                 if webp_path:
                     logger.info(f"模式9: 图片 '{img_path}' 已成功转换为 '{webp_path}'")
                     processed_count += 1
@@ -94,14 +97,14 @@ def run(context):
                     logger.error(f"模式9: 图片 '{img_path}' 转换失败。")
             logger.info(f"模式9: WebP 图片处理完成，共处理 {processed_count} 张图片。")
 
-        if core_utils.check_stop_signal(context):
+        if core_automation_utils.check_stop_signal(context):
             logger.info("模式9：检测到停止信号，打包操作将被跳过。")
             return
 
         # 2. 打包 WebP 图片 (如果 output_webp_dir 中有内容)
         if os.path.exists(output_webp_dir) and os.listdir(output_webp_dir):
             logger.info(f"模式9: 开始将 '{output_webp_dir}' 的内容打包到 '{zip_filepath}'")
-            success = core_utils.create_zip_archive(context, output_webp_dir, zip_filepath)
+            success = core_file_utils.create_zip_archive(context, output_webp_dir, zip_filepath)
             if success:
                 logger.info(f"模式9: 目录 '{output_webp_dir}' 已成功打包到 '{zip_filepath}'")
                 if delete_webp_after_zip:

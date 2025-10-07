@@ -4,7 +4,7 @@ import logging
 import os
 from customtkinter import filedialog
 from app import execute_mode, setup_app_environment
-from core.utils import activate_nikke_window_if_needed
+from core.automation_utils import activate_nikke_window_if_needed
 
 
 class ScriptRunner:
