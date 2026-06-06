@@ -28,6 +28,10 @@ hidden_imports = [
    'PIL.ImageTk',
    'PIL.Image',
    'keyboard._winkeyboard', # For keyboard library on Windows
+   # dxcam related hidden imports (since dxcam is dynamically imported)
+   'dxcam',
+   'comtypes.stream',
+   'comtypes.client',
    # Add core modules explicitly if needed (usually not, but safe)
    'core.constants',
    'core.utils',
