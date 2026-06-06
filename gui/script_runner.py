@@ -87,7 +87,15 @@ class ScriptRunner:
         """通知主线程脚本已完成"""
         # 这里需要通过回调函数通知主线程
         if self.on_script_finished:
-            self.on_script_finished(status, message)
+            try:
+                # 获取绑定的 app_instance 实例（通常是 NikkeGuiApp）
+                app = getattr(self.on_script_finished, '__self__', None)
+                if app and hasattr(app, 'after'):
+                    app.after(0, self.on_script_finished, status, message)
+                else:
+                    self.on_script_finished(status, message)
+            except Exception:
+                self.on_script_finished(status, message)
 
     def stop_script(self):
         """停止脚本执行"""

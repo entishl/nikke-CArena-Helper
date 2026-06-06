@@ -38,17 +38,18 @@ class Tooltip:
 class SidebarComponent:
     """侧边栏组件，包含模式选择、服务器选择等"""
 
-    def __init__(self, parent, app_context, on_mode_select, on_server_select):
+    def __init__(self, parent, app_context, on_mode_select, on_server_select, on_image_toggle=None):
         self.parent = parent
         self.app_context = app_context
         self.on_mode_select = on_mode_select
         self.on_server_select = on_server_select
+        self.on_image_toggle = on_image_toggle
 
         self.sidebar_frame = None
         self.mode_buttons = {}
         self.server_option_menu = None
         self.image_display_switch = None
-        self.settings_button = None
+        self.image_display_var = None
         self.current_row = 0
 
         # 服务器选择配置
@@ -79,9 +80,6 @@ class SidebarComponent:
 
         # 创建图像显示开关
         self.create_image_switch()
-
-        # 创建设置按钮
-        self.create_settings_button()
 
         # 在所有组件之后设置权重，将空白区域推到底部
         self.sidebar_frame.grid_rowconfigure(self.current_row, weight=1)
@@ -172,26 +170,15 @@ class SidebarComponent:
         image_switch_label = ctk.CTkLabel(switch_frame, text="显示指引图像:", font=ctk.CTkFont(weight="bold"))
         image_switch_label.grid(row=0, column=0, sticky="w")
 
+        # 使用实例变量持有 BooleanVar 防止垃圾回收，并设置初始值为 True
+        self.image_display_var = ctk.BooleanVar(value=True)
         self.image_display_switch = ctk.CTkSwitch(
             switch_frame,
             text="开/关",
+            variable=self.image_display_var,
             command=self.on_image_toggle
         )
         self.image_display_switch.grid(row=0, column=1, sticky="w")
-
-    def create_settings_button(self):
-        """创建设置按钮"""
-        self.settings_button = ctk.CTkButton(self.sidebar_frame, text="延迟配置", command=self.on_settings_click)
-        self.settings_button.grid(row=self.current_row, column=0, padx=20, pady=(10, 20), sticky="ew")
-        self.current_row += 1
-
-    def on_image_toggle(self):
-        """图像开关切换回调，由主应用重写"""
-        pass
-
-    def on_settings_click(self):
-        """设置按钮点击回调，由主应用重写"""
-        pass
 
     def get_frame(self):
         """获取侧边栏框架"""

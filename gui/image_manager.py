@@ -126,13 +126,15 @@ class ImageManager:
 
     def hide_log(self):
         """隐藏日志文本框"""
-        # 这个方法需要主应用传入log_textbox引用
-        pass
+        log_textbox = getattr(self, 'log_textbox', None)
+        if log_textbox:
+            log_textbox.grid_forget()
 
     def show_log(self):
         """显示日志文本框"""
-        # 这个方法需要主应用传入log_textbox引用
-        pass
+        log_textbox = getattr(self, 'log_textbox', None)
+        if log_textbox:
+            log_textbox.grid(row=0, column=0, sticky="nsew")
 
     def set_placeholder_text(self, text):
         """设置占位符文本"""

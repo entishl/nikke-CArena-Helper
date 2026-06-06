@@ -145,13 +145,10 @@ class NikkeGuiApp(ctk.CTk):
         self.sidebar_component = SidebarComponent(
             self, self.app_context,
             self.event_handler.handle_mode_select,
-            self.event_handler.handle_server_select
+            self.event_handler.handle_server_select,
+            on_image_toggle=self.event_handler.handle_image_toggle
         )
         self.sidebar_component.get_frame().grid(row=0, column=0, rowspan=4, sticky="nsew")
-
-        # 重写侧边栏的事件回调
-        self.sidebar_component.on_image_toggle = self.event_handler.handle_image_toggle
-        self.sidebar_component.on_settings_click = self.event_handler.handle_settings_click
 
         # 创建内容框架
         content_frame = ctk.CTkFrame(self)
@@ -176,6 +173,7 @@ class NikkeGuiApp(ctk.CTk):
         # 设置图像管理器
         self.image_manager.set_display_area(display_area)
         self.image_manager.set_image_label(image_label)
+        self.image_manager.set_log_textbox(log_textbox)
 
         # 创建日志组件
         self.log_component = LogComponent(display_area, log_textbox)
@@ -209,9 +207,6 @@ class NikkeGuiApp(ctk.CTk):
 
         # 创建窗口状态检查器
         self.window_checker = WindowStatusChecker(self.app_context, self.status_component, self.control_buttons)
-
-        # 设置图像显示开关变量
-        self.sidebar_component.image_display_switch.configure(variable=ctk.BooleanVar(value=True))
 
         # 选择初始模式
         self._select_initial_mode()
