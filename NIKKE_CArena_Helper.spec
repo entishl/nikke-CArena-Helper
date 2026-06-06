@@ -3,6 +3,7 @@
 
 import os
 
+
 # --- Helper function to find mode modules ---
 def get_hidden_imports_for_modes(modes_dir='modes'):
    hidden = []
