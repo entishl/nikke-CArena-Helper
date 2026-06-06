@@ -92,6 +92,27 @@ def click_coordinates(context, relative_coord: tuple, window: pygetwindow.Win32W
         logger.error(f"计算或点击相对坐标 {relative_coord} 时出错: {e}")
         return False
 
+# --- DXCam 截图引擎缓存 ---
+_DX_CAMERA = None
+_DX_CAMERA_INITIALIZED = False
+
+def _get_dx_camera(logger):
+    """
+    延迟初始化并获取 DXCam 实例。如果失败，回退为 None 并避免重复初始化。
+    """
+    global _DX_CAMERA, _DX_CAMERA_INITIALIZED
+    if _DX_CAMERA_INITIALIZED:
+        return _DX_CAMERA
+    _DX_CAMERA_INITIALIZED = True
+    try:
+        import dxcam
+        _DX_CAMERA = dxcam.create(output_color="RGB")
+        logger.info("DXCam 截图引擎初始化成功。")
+    except Exception as e:
+        logger.warning(f"无法初始化 DXCam 截图引擎 (已自动降级回 pyautogui)。原因: {e}")
+        _DX_CAMERA = None
+    return _DX_CAMERA
+
 def take_screenshot(context, relative_region: tuple, window: pygetwindow.Win32Window, filename: str):
     """
     根据相对区域定义和当前窗口尺寸/位置，计算实际屏幕区域并截图保存。
@@ -140,12 +161,52 @@ def take_screenshot(context, relative_region: tuple, window: pygetwindow.Win32Wi
         logger.info(f"正在截取区域 {actual_region} 并保存为 '{filename}'...")
 
         # 确保目录存在
-        # 如果 filename 是绝对路径，os.path.dirname 可能返回空，所以需要检查
         dir_name = os.path.dirname(filename)
-        if dir_name: # 只有当 dirname 不是空（即 filename 不是只有文件名）时才创建目录
+        if dir_name:
             os.makedirs(dir_name, exist_ok=True)
 
-        screenshot = pyautogui.screenshot(region=actual_region)
+        screenshot = None
+        dx_camera = _get_dx_camera(logger)
+
+        if dx_camera is not None:
+            try:
+                # 转换坐标为 DXCam 的 (left, top, right, bottom)
+                region_right = region_left + region_width
+                region_bottom = region_top + region_height
+
+                # DXCam 要求区域尺寸为偶数以避免 DXGI 对齐问题
+                if (region_right - region_left) % 2 != 0:
+                    region_right += 1
+                if (region_bottom - region_top) % 2 != 0:
+                    region_bottom += 1
+
+                # 确保不超出屏幕分辨率边界
+                screen_w, screen_h = pyautogui.size()
+                if region_right > screen_w:
+                    region_right = screen_w
+                    if (region_right - region_left) % 2 != 0 and region_left > 0:
+                        region_left -= 1
+                if region_bottom > screen_h:
+                    region_bottom = screen_h
+                    if (region_bottom - region_top) % 2 != 0 and region_top > 0:
+                        region_top -= 1
+
+                dxcam_region = (region_left, region_top, region_right, region_bottom)
+                frame = dx_camera.grab(region=dxcam_region)
+                if frame is not None:
+                    # 转换 numpy array 为 PIL Image
+                    screenshot = Image.fromarray(frame)
+                    logger.info("已使用 DXCam 完成截图。")
+                else:
+                    logger.warning("DXCam 截图返回 None (可能屏幕无变化或窗口被最小化)，将降级回 pyautogui 截图。")
+            except Exception as e_dx:
+                logger.warning(f"DXCam 截图过程中出错: {e_dx}，将降级回 pyautogui。")
+
+        # Fallback 机制
+        if screenshot is None:
+            screenshot = pyautogui.screenshot(region=actual_region)
+            logger.info("已使用 pyautogui 完成截图。")
+
         screenshot.save(filename)
         logger.info(f"截图已保存为 '{filename}'")
         time.sleep(core_constants.POST_SCREENSHOT_DELAY)
