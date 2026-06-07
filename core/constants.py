@@ -250,7 +250,7 @@ R_4IN2_COLOR_LOGIC_CONFIG = {
     'check_point1': R_MATCH_4IN2_ENTRIES_REL["4in2_1"],
     'check_point2': R_MATCH_4IN2_ENTRIES_REL["4in2_2_color_check"],
     'click_targets_default': { # 当 point1 颜色占优或相等时
-        '4in2_1': R_MATCH_4IN2_ENTRIES_REL["4in2_1"],
+        '4in2_1': R_MATCH_4IN2_ENTRIES_REL["4in2_2_color_check"],
         '4in2_2_first': R_MATCH_4IN2_ENTRIES_REL["4in2_1"], # 原代码逻辑
         '2in1': R_MATCH_4IN2_ENTRIES_REL["4in2_1"]          # 原代码逻辑
     },
@@ -308,7 +308,7 @@ R_M8_4IN2_COLOR_LOGIC_CONFIG = {
     'check_point1': R_M8_MATCH_4IN2_ENTRIES_REL["mode8_4in2_1"],
     'check_point2': R_M8_MATCH_4IN2_ENTRIES_REL["mode8_4in2_2_color_check"],
     'click_targets_default': { # 当 point1 颜色占优或相等时
-        '4in2_1': R_M8_MATCH_4IN2_ENTRIES_REL["mode8_4in2_1"],
+        '4in2_1': R_M8_MATCH_4IN2_ENTRIES_REL["mode8_4in2_2_color_check"],
         '4in2_2_first': R_M8_MATCH_4IN2_ENTRIES_REL["mode8_4in2_1"], # 沿用原代码逻辑
         '2in1': R_M8_MATCH_4IN2_ENTRIES_REL["mode8_4in2_1"]          # 沿用原代码逻辑
     },
